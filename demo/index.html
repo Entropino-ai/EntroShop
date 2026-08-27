@@ -27,7 +27,10 @@
   button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
   button:disabled { opacity: .45; cursor: default; }
   select { outline: none; }
-  .layout { display: grid; grid-template-columns: minmax(0, 1fr) 420px 300px; gap: 0; min-height: calc(100vh - 54px); }
+  .layout { display: grid; grid-template-columns: minmax(0, 1fr) 8px 420px 300px; gap: 0;
+            min-height: calc(100vh - 54px); }
+  #arena-resize { cursor: col-resize; background: transparent; transition: background .15s; }
+  #arena-resize:hover, #arena-resize.dragging { background: var(--accent); }
   #chat { padding: 18px 22px 60px; max-width: 860px; }
   .turn { margin-bottom: 26px; }
   .msg { display: flex; gap: 10px; margin-bottom: 10px; }
@@ -208,7 +211,6 @@
       <option value="boundary">Example · boundary</option>
     </select>
     <button id="btn-new" class="primary">New session</button>
-    <button id="btn-step">Next turn</button>
   </div>
 </header>
 <div class="layout">
@@ -217,12 +219,13 @@
     <div class="empty" id="empty">Click "New session" to start</div>
     <div id="banner"></div>
     <div id="turns"></div>
-    <div id="chat-input" style="display:none">
-      <input id="user-input" placeholder="e.g. black leather belt under $30">
+    <div id="chat-input" style="display:flex">
+      <input id="user-input" placeholder="Type your request (Chinese or English)">
       <button id="btn-send" class="primary">Send</button>
     </div>
     <div class="hint" id="hint"></div>
   </div>
+  <div id="arena-resize" title="Drag to resize the MiroFish panel"></div>
   <div id="arena-col">
     <div class="col-title">🌊 MiroFish · Adversarial Arena</div>
     <div id="arena">
@@ -420,6 +423,25 @@ function refreshArena() {
   if (state.lastWorld) renderArena(state.lastWorld, state.lastResponse || {});
   else renderChainPanel();
 }
+// resizable MiroFish panel
+const layoutEl = document.querySelector('.layout');
+let resizing = false;
+$('arena-resize').addEventListener('pointerdown', e => {
+  resizing = true;
+  e.preventDefault();
+  $('arena-resize').classList.add('dragging');
+  $('arena-resize').setPointerCapture(e.pointerId);
+});
+window.addEventListener('pointermove', e => {
+  if (!resizing) return;
+  const right = $('arena-col').getBoundingClientRect().right;
+  const w = Math.min(680, Math.max(300, right - e.clientX));
+  layoutEl.style.gridTemplateColumns = `minmax(0, 1fr) 8px ${w}px 300px`;
+});
+window.addEventListener('pointerup', () => {
+  resizing = false;
+  $('arena-resize').classList.remove('dragging');
+});
 $('arena-canvas').addEventListener('wheel', e => {
   e.preventDefault();
   arenaPan.s = Math.min(3, Math.max(0.35, arenaPan.s * (e.deltaY < 0 ? 1.12 : 0.89)));
@@ -675,8 +697,13 @@ function renderTurn(r) {
   }
 }
 async function sendChat(text) {
-  if (!text || state.done || !state.sid) return;
-  const r = await api('/api/turn', { session_id: state.sid, user_message: text });
+  if (!state.sid || state.done) return;
+  // send-trigger for everything: chat mode sends the typed message,
+  // example (preset) mode advances the simulator one turn
+  const body = state.mode === 'chat'
+    ? { session_id: state.sid, user_message: text }
+    : { session_id: state.sid };
+  const r = await api('/api/turn', body);
   renderTurn(r);
 }
 $('turns').addEventListener('click', e => {
@@ -702,8 +729,7 @@ async function newSession() {
   Object.keys(fishEls).forEach(k => delete fishEls[k]);
   Object.keys(fishWasAlive).forEach(k => delete fishWasAlive[k]);
   $('chat-input').style.display = state.mode === 'chat' ? 'flex' : 'none';
-  $('btn-step').disabled = state.mode !== 'demo';
-  $('hint').textContent = state.mode === 'chat'
+    $('hint').textContent = state.mode === 'chat'
     ? 'Type in Chinese or English — every turn shows recommendations and clickable filters that converge to a single final pick.'
     : 'Example replays the official evaluator simulator — click "Next turn" to step through it, or switch to Free chat to type your own request.';
   renderTarget(r.target); renderProfile(r.profile);
@@ -715,13 +741,7 @@ async function newSession() {
     $('turns').appendChild(div);
   }
 }
-async function doTurn() {
-  if (state.done || !state.sid) return;
-  const r = await api('/api/turn', { session_id: state.sid, user_message: state.next });
-  renderTurn(r);
-}
 $('btn-new').onclick = newSession;
-$('btn-step').onclick = doTurn;
 $('mode').onchange = newSession;
 $('btn-send').onclick = () => {
   const input = $('user-input'); const text = input.value.trim();
