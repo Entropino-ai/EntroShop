@@ -320,8 +320,12 @@ def _freeform_rank(query, index: CatalogIndex, dense):
                 # title mention = strong intent match (helps with
                 # role reversal like "gift for dad" vs dad-themed girly items)
                 value += 25.0 * weight
-        value += 30.0 * len(query.materials & index.material_sets[asin])
-        value += 30.0 * len(query.colors & index.color_sets[asin])
+        recent_mats = query.recent_materials or query.materials
+        recent_cols = query.recent_colors or query.colors
+        value += 50.0 * len(recent_mats & index.material_sets[asin])
+        value += 50.0 * len(recent_cols & index.color_sets[asin])
+        value += 20.0 * len((query.materials - recent_mats) & index.material_sets[asin])
+        value += 20.0 * len((query.colors - recent_cols) & index.color_sets[asin])
         # category keywords via variant substrings on the root-stripped
         # category path (belt->belts, scarf->scarves, shoes stays meaningful)
         category_lower = index.category_specific_lower[asin]

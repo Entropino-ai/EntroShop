@@ -59,6 +59,8 @@ class GuideState:
     keyword_weights: dict[str, float] = field(default_factory=dict)  # recency decay
     materials: set[str] = field(default_factory=set)
     colors: set[str] = field(default_factory=set)
+    last_materials: set[str] = field(default_factory=set)  # latest material mention
+    last_colors: set[str] = field(default_factory=set)      # latest color mention
     budget: float | None = None
     facet_keys: set[str] = field(default_factory=set)
     no_progress: int = 0
@@ -68,6 +70,8 @@ class GuideState:
     def to_query(self) -> FreeformQuery:
         return FreeformQuery(text="", keywords=list(self.keywords),
                              materials=set(self.materials), colors=set(self.colors),
+                             recent_materials=set(self.last_materials),
+                             recent_colors=set(self.last_colors),
                              budget=self.budget, keyword_weights=dict(self.keyword_weights))
 
     def apply(self, query: FreeformQuery, text: str) -> bool:
@@ -101,6 +105,10 @@ class GuideState:
             for keyword in new_keywords:
                 self.keyword_weights[keyword] = 1.0
             self.last_keywords = list(new_keywords)
+        if new_materials:
+            self.last_materials = set(new_materials)
+        if new_colors:
+            self.last_colors = set(new_colors)
         self.materials |= new_materials
         self.colors |= new_colors
         if new_budget:
@@ -270,7 +278,7 @@ def option_labels(facet: str, values) -> list[dict]:
             if low is None:
                 message = f"budget under {int(high)} dollars"
             elif high is None:
-                message = f"budget {int((low + high) * 1.5)} dollars"
+                message = f"budget {int(low * 1.6)} dollars"
             else:
                 message = f"budget {int((low + high) / 2)} dollars"
         else:  # category token

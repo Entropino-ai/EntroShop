@@ -29,6 +29,12 @@ STOPWORDS = {
     "the", "this", "to", "want", "with", "would", "you", "looking", "need",
     "under", "below", "less", "than", "about", "around", "dollar", "dollars",
     "like", "just", "get", "got", "do", "can", "could", "buy",
+    # filler / no-information words (must not count as new constraints)
+    "hmm", "hm", "ok", "okay", "fine", "sure", "well", "yes", "yeah", "yep",
+    "no", "nope", "thanks", "thank", "please", "um", "uh", "whatever",
+    "alright", "right", "good", "know", "don", "dont", "guess", "think",
+    "anything", "something", "maybe", "nothing", "want", "would",
+    "what", "where", "when", "which", "why", "how", "any", "all", "somewhere",
 }
 
 # Chinese keyword -> English tokens (longest patterns match first).
@@ -88,6 +94,8 @@ class FreeformQuery:
     keyword_weights: dict[str, float] = field(default_factory=dict)  # recency decay
     materials: set[str] = field(default_factory=set)
     colors: set[str] = field(default_factory=set)
+    recent_materials: set[str] = field(default_factory=set)  # newest material mention
+    recent_colors: set[str] = field(default_factory=set)      # newest color mention
     budget: float | None = None
 
 
