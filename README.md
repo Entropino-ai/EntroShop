@@ -1,6 +1,6 @@
-# EntroShop — 熵引導的對話式購物收斂引擎
+# 【TiktokTechJam2026】EntroShop
 
-> **Entropy-guided conversational shopping.** EntroShop asks the right question, watches the candidate swarm converge, and settles on the one product you actually want — within 10 turns.
+> **Entropy-guided conversational shopping.** EntroShop asks the highest-information question, watches the candidate swarm converge, and settles on the one product you actually want — within 10 turns.
 
 **TikTok TechJam 2026 · Track 4 — Shopping Copilot: AI Conversational Search & Recommendations**
 
@@ -18,7 +18,7 @@
 
 ## Why
 
-Traditional e-commerce search matches keywords, not intent. A shopper who says *"想要一条黑色的皮腰带，预算30美元"* fights a filter UI; a conversational agent that just "chats" never converges. EntroShop treats shopping as an **information-elicitation problem**: every turn it picks the question with the highest expected information gain, narrows the candidate pool, and converges to a single answer — like rendering a scene, one sample at a time.
+Traditional e-commerce search matches keywords, not intent. A shopper who says *"I want a black leather belt under \$30"* fights a filter UI; a conversational agent that just "chats" never converges. EntroShop treats shopping as an **information-elicitation problem**: every turn it picks the question with the highest expected information gain, narrows the candidate pool, and converges to a single answer — like rendering a scene, one sample at a time.
 
 ## How it works
 

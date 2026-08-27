@@ -34,7 +34,7 @@ TOOLS = [
         "inputSchema": {
             "type": "object",
             "properties": {
-                "query": {"type": "string", "description": "e.g. 黑色皮腰带 预算30美元 or 'black leather belt under $30'"},
+                "query": {"type": "string", "description": "e.g. black leather belt under $30"},
                 "top_k": {"type": "integer", "description": "number of results", "default": 10},
             },
             "required": ["query"],
@@ -133,14 +133,14 @@ def _call_tool(ctx: MCPContext, name: str, arguments: dict) -> object:
         conversation = str(arguments.get("conversation") or "")
         parsed = freeform_query(conversation)
         if not parsed.keywords and not parsed.materials and not parsed.colors:
-            return {"message": "你想找哪一類商品？", "ask_attribute": "category"}
+            return {"message": "What kind of product are you looking for?", "ask_attribute": "category"}
         if not parsed.materials:
-            return {"message": "有材質上的偏好嗎（如棉、皮革、羊毛）？", "ask_attribute": "material"}
+            return {"message": "Any material preference (cotton, leather, wool...)?", "ask_attribute": "material"}
         if not parsed.colors:
-            return {"message": "有顏色偏好嗎？", "ask_attribute": "color"}
+            return {"message": "Any color preference?", "ask_attribute": "color"}
         if parsed.budget is None:
-            return {"message": "預算大概在什麼範圍？", "ask_attribute": "budget"}
-        return {"message": "還有其他硬性要求嗎？沒有的話我開始推薦。", "ask_attribute": None}
+            return {"message": "What budget range are you thinking of?", "ask_attribute": "budget"}
+        return {"message": "Any other hard requirements? Otherwise I'll start recommending.", "ask_attribute": None}
     raise ValueError(f"unknown tool: {name}")
 
 

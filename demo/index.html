@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Shopping Copilot — 演示</title>
+<title>【TiktokTechJam2026】EntroShop — Demo</title>
 <style>
   :root {
     --bg: #0f1117; --panel: #171a23; --panel2: #1e2230; --line: #2a2f40;
@@ -142,102 +142,102 @@
 </head>
 <body>
 <header>
-  <h1>🛍️ Shopping Copilot <span class="badge">TikTok TechJam 2026 · Track 4</span></h1>
+  <h1>🛍️ EntroShop <span class="badge">【TiktokTechJam2026】· Track 4</span></h1>
   <div class="controls">
-    <span id="llm-chip" class="badge llm-chip" title="設定 LLM 重排">LLM: 載入中…</span>
-    <span id="dense-chip" class="badge" title="稠密檢索後端">稠密: —</span>
+    <span id="llm-chip" class="badge llm-chip" title="Configure LLM rerank">LLM: loading…</span>
+    <span id="dense-chip" class="badge" title="dense retrieval backend">Dense: —</span>
     <select id="mode">
-      <option value="demo" selected>自動演示（官方模擬器）</option>
-      <option value="chat">自由對話</option>
+      <option value="demo" selected>Auto demo (official simulator)</option>
+      <option value="chat">Free chat</option>
     </select>
-    <select id="scenario" title="演示場景">
-      <option value="random">隨機場景</option>
-      <option value="buying">buying · 高意圖購買</option>
-      <option value="browsing">browsing · 隨意瀏覽</option>
-      <option value="intent_override">intent_override · 意圖覆寫</option>
-      <option value="boundary">boundary · 無偏好邊界</option>
+    <select id="scenario" title="Demo scenario">
+      <option value="random">Random</option>
+      <option value="buying">buying · high-intent</option>
+      <option value="browsing">browsing · exploring</option>
+      <option value="intent_override">intent_override</option>
+      <option value="boundary">boundary · no-preference</option>
     </select>
-    <button id="btn-new" class="primary">新一局</button>
-    <button id="btn-step">下一輪</button>
-    <button id="btn-auto">▶ 自動播放</button>
-    <button id="btn-world">🌊 世界視圖</button>
+    <button id="btn-new" class="primary">New session</button>
+    <button id="btn-step">Next turn</button>
+    <button id="btn-auto">▶ Auto-play</button>
+    <button id="btn-world">🌊 World view</button>
   </div>
 </header>
 <div class="layout">
   <div id="chat">
-    <div class="empty" id="empty">點擊「新一局」開始演示</div>
+    <div class="empty" id="empty">Click "New session" to start</div>
     <div id="banner"></div>
     <div id="world">
       <div class="wf-steps">
-        <div class="wf-step" id="wf1"><span class="wf-num">01</span>種子消息</div>
-        <div class="wf-step" id="wf2"><span class="wf-num">02</span>意圖圖</div>
-        <div class="wf-step" id="wf3"><span class="wf-num">03</span>群體模擬</div>
-        <div class="wf-step" id="wf4"><span class="wf-num">04</span>預測報告</div>
+        <div class="wf-step" id="wf1"><span class="wf-num">01</span>Seed message</div>
+        <div class="wf-step" id="wf2"><span class="wf-num">02</span>Intent graph</div>
+        <div class="wf-step" id="wf3"><span class="wf-num">03</span>Swarm simulation</div>
+        <div class="wf-step" id="wf4"><span class="wf-num">04</span>Forecast</div>
       </div>
       <div id="world-canvas"><div id="world-g"></div></div>
       <div class="wf-hud" id="wf-hud"></div>
-      <div class="wf-legend">🐟 存活候選（越靠近中心排名越高）· 暗色 = 已被淘汰 · 👑 = 最終推薦 · 懸停看商品 · 滾輪縮放 · 拖拽平移</div>
+      <div class="wf-legend">🐟 surviving candidates (closer to center = higher rank) · dim = eliminated · 👑 = final pick · hover for product · wheel to zoom · drag to pan</div>
     </div>
     <div id="turns"></div>
     <div id="chat-input" style="display:none">
-      <input id="user-input" placeholder="例：我想要一条黑色的皮腰带，预算30美元 / black leather belt under $30">
-      <button id="btn-send" class="primary">發送</button>
+      <input id="user-input" placeholder="e.g. black leather belt under $30">
+      <button id="btn-send" class="primary">Send</button>
     </div>
     <div class="hint" id="hint"></div>
   </div>
   <div id="side">
-    <h3>會話狀態</h3>
-    <div class="kv"><b>路由意圖</b> <span id="s-intent" class="intent browsing">—</span></div>
-    <div class="kv"><b>輪次</b> <span id="s-turn" class="stat">0 / 10</span></div>
-    <div class="kv"><b>檢索池</b> <span id="s-pool" class="stat">—</span></div>
-    <div class="kv"><b>類目</b> <span id="s-cat">—</span></div>
-    <h3>精確短語槽位</h3>
+    <h3>Session state</h3>
+    <div class="kv"><b>Intent</b> <span id="s-intent" class="intent browsing">—</span></div>
+    <div class="kv"><b>Turn</b> <span id="s-turn" class="stat">0 / 10</span></div>
+    <div class="kv"><b>Pool</b> <span id="s-pool" class="stat">—</span></div>
+    <div class="kv"><b>Category</b> <span id="s-cat">—</span></div>
+    <h3>Exact phrases</h3>
     <div class="chips" id="s-phrases"><span class="chip">—</span></div>
-    <h3>被覆寫（superseded）</h3>
+    <h3>Superseded</h3>
     <div class="chips" id="s-sup"><span class="chip">—</span></div>
-    <h3>合成屬性</h3>
+    <h3>Synthetic slots</h3>
     <div class="kv"><b>material</b> <span id="s-mat">—</span></div>
     <div class="kv"><b>color</b> <span id="s-col">—</span></div>
     <div class="kv"><b>budget</b> <span id="s-budget">—</span></div>
-    <h3>本輪消息解析</h3>
+    <h3>Parsed this turn</h3>
     <div class="chips" id="s-parsed"><span class="chip">—</span></div>
-    <h3>目標商品（演示模式披露）</h3>
+    <h3>Target (demo disclosure)</h3>
     <div id="s-target" class="kv">—</div>
-    <h3>LLM 用量</h3>
+    <h3>LLM usage</h3>
     <div class="kv"><b>prompt</b> <span id="s-tok-p" class="stat">0</span> · <b>completion</b> <span id="s-tok-c" class="stat">0</span></div>
-    <h3>MCP（Model Context Protocol）</h3>
+    <h3>MCP (Model Context Protocol)</h3>
     <div class="kv"><b>stdio</b> <span class="mono">PYTHONPATH=vendor python3 demo/mcp_server.py</span></div>
     <div class="kv"><b>HTTP</b> <span class="mono">POST /mcp（JSON-RPC 2.0）</span></div>
-    <div class="kv"><b>工具</b> <span class="mono">search_products · product_details · clarify</span></div>
-    <button id="btn-mcp-test" style="width:100%; margin-top:8px">🧪 測試 search_products</button>
+    <div class="kv"><b>Tools</b> <span class="mono">search_products · product_details · clarify</span></div>
+    <button id="btn-mcp-test" style="width:100%; margin-top:8px">🧪 Test search_products</button>
     <div id="s-mcp-out" class="hint"></div>
-    <h3>用戶畫像</h3>
+    <h3>User profile</h3>
     <div id="s-profile" class="kv">—</div>
   </div>
 </div>
 
 <div id="llm-modal" class="modal-overlay" style="display:none">
   <div class="modal">
-    <h2>⚙️ LLM 重排設定（可選）</h2>
-    <p class="hint">配置後，演示模式的檢索池（11–60 個候選）會交給 LLM 重排前 20 名；
-    調用失敗或未配置時自動回退到離線排序，不影響演示。</p>
+    <h2>⚙️ LLM Rerank Config (optional)</h2>
+    <p class="hint">With a key set, demo pools of 11–60 candidates get an LLM rerank of the top 20;
+    failures or no key fall back to the offline ranking automatically.</p>
     <label>API Base</label>
     <input id="llm-base" value="https://api.deepseek.com/v1">
-    <label>API Key <span class="hint">（留空 = 使用本機 DeepSeek 默認密鑰）</span></label>
-    <input id="llm-key" type="password" placeholder="留空使用本機默認（~/.dsh/.credentials.yaml）">
+    <label>API Key <span class="hint"> (leave blank = use the machine's default DeepSeek key)</span></label>
+    <input id="llm-key" type="password" placeholder="leave blank to use the machine default (~/.dsh/.credentials.yaml)">
     <label>Model</label>
     <select id="llm-model">
-      <option value="deepseek-v4-flash" selected>deepseek-v4-flash（快，適合重排）</option>
+      <option value="deepseek-v4-flash" selected>deepseek-v4-flash（fast, good for rerank)</option>
       <option value="deepseek-v4-pro">deepseek-v4-pro</option>
       <option value="deepseek-v4-flash-vision-exp">deepseek-v4-flash-vision-exp</option>
-      <option value="gpt-4o-mini">gpt-4o-mini（自備 key 時）</option>
+      <option value="gpt-4o-mini">gpt-4o-mini（bring your own key)</option>
     </select>
-    <p class="hint">🔒 密鑰僅發送到本機服務（127.0.0.1）並保存在瀏覽器 localStorage，
-    不落盤、不寫入日誌、不提交進 git。本機默認密鑰來自 ~/.dsh/.credentials.yaml，服務端讀取，絕不回傳瀏覽器。</p>
+    <p class="hint">🔒 The key is sent only to the local server (127.0.0.1) and stored in browser localStorage;
+    never written to disk, logs, or git. The machine default key is read server-side and never sent back to the browser.</p>
     <div class="modal-actions">
-      <button id="llm-local" title="使用本機 DeepSeek 默認密鑰">本機默認</button>
-      <button id="llm-save" class="primary">保存並開始</button>
-      <button id="llm-skip">跳過（離線模式）</button>
+      <button id="llm-local" title="use the machine's default DeepSeek key">Machine default</button>
+      <button id="llm-save" class="primary">Save & start</button>
+      <button id="llm-skip">Skip (offline)</button>
     </div>
   </div>
 </div>
@@ -269,8 +269,8 @@ function renderWorld(w, r) {
   setStep('wf2', hasSlots > 0, w.alive_count <= 200 && !converged);
   setStep('wf3', w.alive_count > 1 && hasSlots > 0, converged);
   setStep('wf4', converged, false);
-  $('wf-hud').innerHTML = `存活實體 <b class="stat">${w.alive_count}</b> · 第 <b class="stat">${state.turn}</b> 輪` +
-    (converged ? ' · <b style="color:var(--green)">✅ 群體已收斂</b>' : '');
+  $('wf-hud').innerHTML = `Surviving entities <b class="stat">${w.alive_count}</b> · Turn <b class="stat">${state.turn}</b>` +
+    (converged ? ' · <b style="color:var(--green)">✅ swarm converged</b>' : '');
   const g = $('world-g');
   const nodes = (w.entities || []).map(e => {
     const dist = Math.hypot(e.x - 0.5, e.y - 0.5);
@@ -319,7 +319,7 @@ async function loadHealth() {
     const res = await fetch('/api/health');
     const h = await res.json();
     const chip = $('dense-chip');
-    chip.textContent = '稠密: ' + (h.dense === 'TransformerDense' ? 'MiniLM(Transformer)' : (h.dense || '—'));
+    chip.textContent = 'Dense: ' + (h.dense === 'TransformerDense' ? 'MiniLM(Transformer)' : (h.dense || '—'));
     chip.className = 'badge' + (h.dense === 'TransformerDense' ? ' on' : '');
   } catch (e) { /* server not ready yet */ }
 }
@@ -331,10 +331,10 @@ function hideLLMModal() { $('llm-modal').style.display = 'none'; }
 function updateLLMChip(r, source) {
   const chip = $('llm-chip');
   if (r && r.configured) {
-    chip.textContent = 'LLM: ' + (r.model || '已配置') + (source === 'local' ? '（本機）' : '');
+    chip.textContent = 'LLM: ' + (r.model || 'configured') + (source === 'local' ? ' (local)' : '');
     chip.className = 'badge llm-chip on';
   } else {
-    chip.textContent = 'LLM: 離線';
+    chip.textContent = 'LLM: offline';
     chip.className = 'badge llm-chip';
   }
 }
@@ -343,7 +343,7 @@ async function useLocalLLM() {
   if (r.ok) localStorage.removeItem(LLM_STORE);
   updateLLMChip(r, r.source);
   if (r.ok) hideLLMModal();
-  else alert(r.error || '本機未找到 DeepSeek 憑證');
+  else alert(r.error || 'No local DeepSeek credentials found');
 }
 async function saveLLM() {
   const cfg = {
@@ -416,35 +416,35 @@ function renderState(s, query) {
   $('s-mat').textContent = (s.materials || []).join(', ') || '—';
   $('s-col').textContent = (s.colors || []).join(', ') || '—';
   $('s-budget').textContent = s.budget ?? '—';
-  const parsed = [...(query ? (query.keywords||[]).map(x => x + '［關鍵詞］') : []),
-                  ...(query ? (query.materials||[]).map(x => x + '［料］') : []),
-                  ...(query ? (query.colors||[]).map(x => x + '［色］') : []),
-                  ...(query && query.budget != null ? [query.budget + '［預算］'] : []),
-                  ...(s.parsed_phrases||[]).map(x => x + '［短語］'),
-                  ...(s.parsed_materials||[]).map(x => x + '［料］'),
-                  ...(s.parsed_colors||[]).map(x => x + '［色］')];
+  const parsed = [...(query ? (query.keywords||[]).map(x => x + ' [keyword]') : []),
+                  ...(query ? (query.materials||[]).map(x => x + ' [mat]') : []),
+                  ...(query ? (query.colors||[]).map(x => x + ' [color]') : []),
+                  ...(query && query.budget != null ? [query.budget + ' [budget]'] : []),
+                  ...(s.parsed_phrases||[]).map(x => x + ' [phrase]'),
+                  ...(s.parsed_materials||[]).map(x => x + ' [mat]'),
+                  ...(s.parsed_colors||[]).map(x => x + ' [color]')];
   chips($('s-parsed'), parsed, 'parsed');
 }
 function renderTarget(t) {
-  if (!t) { $('s-target').innerHTML = '自由對話模式不披露目標'; return; }
-  $('s-target').innerHTML = `<b>${esc(t.scenario_type)}</b> · 難度 ${esc(t.difficulty||'—')}<br>
+  if (!t) { $('s-target').innerHTML = 'No target in free chat'; return; }
+  $('s-target').innerHTML = `<b>${esc(t.scenario_type)}</b> · Difficulty ${esc(t.difficulty||'—')}<br>
     <b>${esc(t.title)}</b><br>
-    <span class="mono">${esc(t.asin)}</span> · ${fmtRating(t.average_rating)}（${t.rating_number ?? 0} 評價）· ${fmtPrice(t.price)}<br>
-    店鋪：${esc(t.store)}`;
+    <span class="mono">${esc(t.asin)}</span> · ${fmtRating(t.average_rating)}（${t.rating_number ?? 0} ratings) · ${fmtPrice(t.price)}<br>
+    Store: ${esc(t.store)}`;
 }
 function renderProfile(p) {
   if (!p || !p.summary) { $('s-profile').textContent = '—'; return; }
-  $('s-profile').innerHTML = `<b>風格</b> ${esc(p.rating_style)} · <b>均分</b> ${p.average_prior_rating ?? '—'}<br>
-    <b>標籤</b> ${(p.preference_tags||[]).map(esc).join('、')}<br><span class="hint">${esc(p.summary)}</span>`;
+  $('s-profile').innerHTML = `<b>Style</b> ${esc(p.rating_style)} · <b>Avg rating</b> ${p.average_prior_rating ?? '—'}<br>
+    <b>Tags</b> ${(p.preference_tags||[]).map(esc).join('、')}<br><span class="hint">${esc(p.summary)}</span>`;
 }
 function renderTurn(r) {
   $('empty').style.display = 'none';
   const div = document.createElement('div');
   div.className = 'turn';
   const poolBadge = r.guide
-    ? `<span class="pool-badge ${r.guide.converged ? 'converged' : ''}">${r.guide.converged ? '已收斂 · 最終 1 個' : (r.guide.hard ? '精確符合 ' : '候選池 ') + r.guide.pool_size}</span>`
+    ? `<span class="pool-badge ${r.guide.converged ? 'converged' : ''}">${r.guide.converged ? 'Converged · final 1' : (r.guide.hard ? 'Exact ' : 'Pool ') + r.guide.pool_size}</span>`
     : '';
-  const turnLabel = `<div style="font-size:11px;color:var(--muted);margin-bottom:6px">第 ${r.turn} 輪${poolBadge}</div>`;
+  const turnLabel = `<div style="font-size:11px;color:var(--muted);margin-bottom:6px">Turn ${r.turn}${poolBadge}</div>`;
   let cards = '';
   if (r.final) {
     const c = r.final;
@@ -453,29 +453,29 @@ function renderTurn(r) {
     const pct = (part, whole) => whole ? Math.max(3, Math.min(100, Math.round(100 * part / whole))) : 100;
     const funnel = f.catalog ? `
       <div class="funnel">
-        <div class="fstep"><span>全目錄</span><span class="stat">${f.catalog.toLocaleString()}</span>
+        <div class="fstep"><span>Catalog</span><span class="stat">${f.catalog.toLocaleString()}</span>
           <div class="bar"><div style="width:100%"></div></div></div>
-        <div class="fstep"><span>並集池</span><span class="stat">${(f.union ?? '—').toLocaleString?.() ?? f.union ?? '—'}</span>
+        <div class="fstep"><span>Union pool</span><span class="stat">${(f.union ?? '—').toLocaleString?.() ?? f.union ?? '—'}</span>
           <div class="bar"><div style="width:${pct(f.union ?? 0, f.catalog)}%"></div></div></div>
-        <div class="fstep"><span>精確符合</span><span class="stat">${(f.hard ?? '—').toLocaleString?.() ?? f.hard ?? '—'}</span>
+        <div class="fstep"><span>Exact</span><span class="stat">${(f.hard ?? '—').toLocaleString?.() ?? f.hard ?? '—'}</span>
           <div class="bar"><div style="width:${pct(f.hard ?? 0, f.union ?? 1)}%"></div></div></div>
-        <div class="fstep finalstep"><span>最終推薦</span><span class="stat">1 🎯</span>
+        <div class="fstep finalstep"><span>Final</span><span class="stat">1 🎯</span>
           <div class="bar"><div style="width:100%"></div></div></div>
       </div>` : '';
     const signals = (r.signals && r.signals.length)
       ? `<div class="guide-chips sig-row">${r.signals.map(s => `<span class="chip">${esc(s)}</span>`).join('')}</div>` : '';
     cards = `
       <div class="final-card">
-        <div class="final-title">🎯 最終推薦</div>
+        <div class="final-title">🎯 Final pick</div>
         <div class="title">${esc(c.title)}</div>
-        <div class="meta">${fmtPrice(c.price)} · ${fmtRating(c.average_rating)}（${c.rating_number ?? 0} 評價）· ${esc(c.store)}</div>
+        <div class="meta">${fmtPrice(c.price)} · ${fmtRating(c.average_rating)}（${c.rating_number ?? 0} ratings) · ${esc(c.store)}</div>
         <div class="feat">${esc((c.features||[]).join(' · '))}</div>
         <div class="meta mono">${esc(c.parent_asin)}</div>
         ${signals}
         ${funnel}
         ${rest.length ? `
         <details class="others">
-          <summary>其他候選 ${rest.length} 個（點擊展開）</summary>
+          <summary>Other candidates (${rest.length}) — expand</summary>
           <div class="recs">${rest.map((x, i) => `
             <div class="card">
               <div class="rank">#${i+2}</div>
@@ -493,16 +493,16 @@ function renderTurn(r) {
         <div class="feat">${esc((c.features||[]).join(' · '))}</div>
       </div>`).join('');
   } else {
-    cards = '<div class="hint">（本輪無推薦）</div>';
+    cards = '<div class="hint">(no recommendations this turn)</div>';
   }
   const ask = r.ask_attribute
-    ? `<span class="ask-tag">提問：${esc(r.ask_attribute)}</span>` : '';
+    ? `<span class="ask-tag">Ask: ${esc(r.ask_attribute)}</span>` : '';
   const chips = (r.guide && r.guide.options && r.guide.options.length)
     ? `<div class="guide-chips">${r.guide.options.map(o =>
         `<button class="gchip ${o.type==='converge'?'converge':''}" data-guide-msg="${esc(o.message)}">${esc(o.label)}</button>`
       ).join('')}</div>` : '';
   div.innerHTML = `${turnLabel}
-    <div class="msg customer"><div><div class="who">顧客</div>
+    <div class="msg customer"><div><div class="who">Customer</div>
       <div class="bubble">${esc(r.user_message)}</div></div></div>
     <div class="msg agent"><div><div class="who">Agent</div>
       <div class="bubble">${esc(r.agent_message)}${ask}</div></div></div>
@@ -530,14 +530,14 @@ function renderTurn(r) {
     $('s-tok-c').textContent = state.tokC;
   }
   if (r.hit) {
-    $('banner').innerHTML = `<div class="hit-banner">🎯 命中！第 ${r.hit_turn} 輪 · 排名 #${r.hit_rank} · 檢索池收斂完成</div>`;
+    $('banner').innerHTML = `<div class="hit-banner">🎯 Hit! Turn ${r.hit_turn} · rank #${r.hit_rank} · pool converged</div>`;
     stopAuto();
   } else if (r.done) {
     if (state.mode === 'chat') {
-      $('banner').innerHTML = `<div class="done-banner">⏹ 已達 10 輪上限（與競賽一致）。點「新一局」開始新對話。</div>`;
-      $('hint').textContent = '已達 10 輪上限。點「新一局」重新開始。';
+      $('banner').innerHTML = `<div class="done-banner">⏹ 10-turn limit reached (matches the competition). Click "New session".</div>`;
+      $('hint').textContent = '10-turn limit reached. Start a new session.';
     } else {
-      $('banner').innerHTML = `<div class="done-banner">⚠️ 10 輪用盡未命中（演示模式：該樣本為不可分辨的通用特徵場景）</div>`;
+      $('banner').innerHTML = `<div class="done-banner">⚠️ 10 turns exhausted without a hit (ambiguous boilerplate session)</div>`;
     }
     stopAuto();
   }
@@ -569,13 +569,13 @@ async function newSession() {
   $('wf-hud').textContent = '';
   $('chat-input').style.display = state.mode === 'chat' ? 'flex' : 'none';
   $('hint').textContent = state.mode === 'chat'
-    ? '提示：支援中英文自由輸入；每輪都會給出推薦，並提供點擊式篩選按鈕引導收斂——最終收斂到 1 個唯一推薦。連續兩輪沒有新信息會自動收斂。'
-    : '自動演示使用官方評估器同款模擬器逐輪披露約束。';
+    ? 'Hint: Chinese or English free-form input; every turn shows recommendations and clickable filters that converge to a single final pick. Two turns without new info auto-converge.'
+    : 'Auto demo replays the official evaluator simulator, disclosing constraints turn by turn.';
   renderTarget(r.target); renderProfile(r.profile);
   if (state.mode === 'demo' && r.first_user_message) {
     // show the opening customer message without consuming a turn yet
     const div = document.createElement('div'); div.className = 'turn';
-    div.innerHTML = `<div class="msg customer"><div><div class="who">顧客（開場）</div>
+    div.innerHTML = `<div class="msg customer"><div><div class="who">Customer (opening)</div>
       <div class="bubble">${esc(r.first_user_message)}</div></div></div>`;
     $('turns').appendChild(div);
   }
@@ -585,13 +585,13 @@ async function doTurn() {
   const r = await api('/api/turn', { session_id: state.sid, user_message: state.next });
   renderTurn(r);
 }
-function startAuto() { state.auto = true; $('btn-auto').textContent = '⏸ 暫停';
+function startAuto() { state.auto = true; $('btn-auto').textContent = '⏸ Pause';
   state.timer = setInterval(async () => {
     if (state.done || !state.sid) { stopAuto(); return; }
     await doTurn();
   }, 1100); }
 function stopAuto() { state.auto = false; clearInterval(state.timer);
-  $('btn-auto').textContent = '▶ 自動播放'; }
+  $('btn-auto').textContent = '▶ Auto-play'; }
 $('btn-new').onclick = newSession;
 $('btn-step').onclick = doTurn;
 $('btn-auto').onclick = () => state.auto ? stopAuto() : startAuto();
@@ -603,16 +603,16 @@ $('btn-send').onclick = () => {
 };
 $('user-input').addEventListener('keydown', e => { if (e.key === 'Enter') $('btn-send').click(); });
 $('btn-mcp-test').onclick = async () => {
-  const q = state.lastUserMessage || '黑色皮腰带 预算30美元';
+  const q = state.lastUserMessage || 'black leather belt under $30';
   const r = await api('/mcp', { jsonrpc: '2.0', id: 1, method: 'tools/call',
                                 params: { name: 'search_products', arguments: { query: q, top_k: 3 } } });
   try {
     const data = JSON.parse(r.result.content[0].text);
     const top1 = data.results[0] ? esc(data.results[0].title).slice(0, 56) : '—';
-    $('s-mcp-out').innerHTML = `查詢：「${esc(q)}」<br>返回 ${data.results.length} 條<br>top1: ${top1}<br>` +
-      `解析: ${esc((data.parsed.keywords||[]).join(',')) || '—'}`;
+    $('s-mcp-out').innerHTML = `Query: "${esc(q)}"<br>results: ${data.results.length}<br>top1: ${top1}<br>` +
+      `parsed: ${esc((data.parsed.keywords||[]).join(',')) || '—'}`;
   } catch (e) {
-    $('s-mcp-out').textContent = 'MCP 調用失敗: ' + (r.error ? r.error.message : JSON.stringify(r).slice(0, 80));
+    $('s-mcp-out').textContent = 'MCP call failed: ' + (r.error ? r.error.message : JSON.stringify(r).slice(0, 80));
   }
 };
 restoreLLM();

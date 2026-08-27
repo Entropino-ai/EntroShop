@@ -32,7 +32,7 @@ STOPWORDS = {
 }
 
 # Chinese keyword -> English tokens (longest patterns match first).
-# 预算/价格 are handled by the budget regexes, NOT as keywords.
+# budget/price are handled by the budget regexes, NOT as keywords.
 ZH_EN = [
     ("防水", "waterproof"), ("保暖", "warm"), ("暖和", "warm"), ("轻便", "lightweight"),
     ("輕便", "lightweight"), ("宽松", "loose"), ("寬鬆", "loose"), ("修身", "slim"),

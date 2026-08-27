@@ -212,16 +212,16 @@ def demo_turn(session: DemoSession, body: dict) -> dict:
 
 def _converge_reason(guide: GuideState, pool_size: int, clamped: bool) -> str:
     if clamped:
-        return "輪次鉗制（第 9 輪起強制）"
+        return "turn clamp (forced from turn 9)"
     if guide.converged:
-        return "用戶顯式收斂（就這些吧）"
+        return "explicit convergence (that's it)"
     if pool_size <= 5:
-        return f"精確符合 ≤5（現 {pool_size}）"
+        return f"exact matches ≤5 (now {pool_size})"
     if guide.no_progress >= 2:
-        return "連續 2 輪無新信息"
+        return "no new info for 2 turns"
     if guide.guide_rounds >= 4:
-        return "引導輪次耗盡（4 輪 facet）"
-    return "無可用 facet，直接收斂"
+        return "guidance rounds exhausted (4 facets)"
+    return "no useful facet left, converge"
 
 
 GOLDEN_ANGLE = 2.399963229728653
@@ -272,40 +272,40 @@ def build_world(world_state: dict, alive_ordered: list[str], final_asin: str | N
 def chat_trace(turn: int, parsed, guide: GuideState, pool_size: int, converged: bool,
                clamped: bool, ranked: list[str]) -> dict:
     steps = [
-        {"name": "消息解析", "kind": "input",
-         "detail": ((("、".join(sorted(parsed.phrases))[:36]) or "無模板短語")
-                    + (f" 料:{','.join(sorted(parsed.materials))}" if parsed.materials else "")
-                    + (f" 色:{','.join(sorted(parsed.colors))}" if parsed.colors else ""))},
-        {"name": "意圖路由", "kind": "decision", "detail": "自由對話 · freeform 引導"},
-        {"name": "槽位累積", "kind": "state",
-         "detail": f"kw×{len(guide.keywords)} 料×{len(guide.materials)} 色×{len(guide.colors)} 預算{guide.budget or '—'}"},
-        {"name": "多路檢索", "kind": "funnel",
-         "detail": f"50k → 並集 → 精確 {pool_size}"},
-        {"name": "打分排序", "kind": "funnel",
+        {"name": "Parse message", "kind": "input",
+         "detail": (((", ".join(sorted(parsed.phrases))[:36]) or "no template phrase")
+                    + (f" mat:{','.join(sorted(parsed.materials))}" if parsed.materials else "")
+                    + (f" col:{','.join(sorted(parsed.colors))}" if parsed.colors else ""))},
+        {"name": "Intent routing", "kind": "decision", "detail": "freeform guidance"},
+        {"name": "Slot accumulation", "kind": "state",
+         "detail": f"kw x {len(guide.keywords)} mat x {len(guide.materials)} col x {len(guide.colors)} budget {guide.budget or '—'}"},
+        {"name": "Multi-route retrieval", "kind": "funnel",
+         "detail": f"50k -> union -> exact {pool_size}"},
+        {"name": "Score & rank", "kind": "funnel",
          "detail": (f"top1: {AGENT.index.products[ranked[0]]['title'][:26]}" if ranked else "—")},
-        {"name": "收斂決策", "kind": "decision",
-         "detail": _converge_reason(guide, pool_size, clamped) if converged else "繼續引導（提問/chips）"},
+        {"name": "Converge decision", "kind": "decision",
+         "detail": _converge_reason(guide, pool_size, clamped) if converged else "continue guiding"},
     ]
     if converged and ranked:
-        steps.append({"name": "最終推薦", "kind": "output", "detail": f"🎯 {ranked[0]}"})
+        steps.append({"name": "Final pick", "kind": "output", "detail": f"🎯 {ranked[0]}"})
     return {"turn": turn, "steps": steps}
 
 
 def demo_trace(turn: int, parsed, state: dict, hit: bool) -> dict:
     steps = [
-        {"name": "消息解析", "kind": "input",
-         "detail": ((("、".join(sorted(parsed.phrases))[:36]) or "無模板短語")
-                    + (f" 料:{','.join(sorted(parsed.materials))}" if parsed.materials else "")
-                    + (f" 色:{','.join(sorted(parsed.colors))}" if parsed.colors else ""))},
-        {"name": "意圖路由", "kind": "decision", "detail": str(state.get("intent"))},
-        {"name": "槽位累積", "kind": "state",
-         "detail": f"短語×{len(state.get('phrases') or [])} 料×{len(state.get('materials') or [])} 色×{len(state.get('colors') or [])}"},
-        {"name": "多路檢索", "kind": "funnel", "detail": f"檢索池 {state.get('pool_size', '—')}"},
-        {"name": "收斂決策", "kind": "decision",
-         "detail": "🎯 命中目標" if hit else "提問採集更多約束"},
+        {"name": "Parse message", "kind": "input",
+         "detail": (((", ".join(sorted(parsed.phrases))[:36]) or "no template phrase")
+                    + (f" mat:{','.join(sorted(parsed.materials))}" if parsed.materials else "")
+                    + (f" col:{','.join(sorted(parsed.colors))}" if parsed.colors else ""))},
+        {"name": "Intent routing", "kind": "decision", "detail": str(state.get("intent"))},
+        {"name": "Slot accumulation", "kind": "state",
+         "detail": f"phrases x {len(state.get('phrases') or [])} mat x {len(state.get('materials') or [])} col x {len(state.get('colors') or [])}"},
+        {"name": "Multi-route retrieval", "kind": "funnel", "detail": f"pool {state.get('pool_size', '—')}"},
+        {"name": "Converge decision", "kind": "decision",
+         "detail": "🎯 target hit" if hit else "ask for more constraints"},
     ]
     if hit:
-        steps.append({"name": "最終推薦", "kind": "output", "detail": "目標商品進入 Top10"})
+        steps.append({"name": "Final pick", "kind": "output", "detail": "target entered Top10"})
     return {"turn": turn, "steps": steps}
 
 
@@ -334,7 +334,7 @@ def chat_turn(session: ChatSession, body: dict) -> dict:
         pool_size = len(AGENT.index.products)
         is_hard = False
         converged = False
-        message = "先告訴我你想找哪類商品？點一個，或直接輸入（中英文都可以）："
+        message = "What are you looking for? Pick a category or type it (Chinese or English):"
         chips = [{"type": "category", "label": label, "message": message_text}
                  for label, message_text in STARTER_CATEGORIES]
         if session.turn >= 9:
@@ -347,8 +347,9 @@ def chat_turn(session: ChatSession, body: dict) -> dict:
             world_alive = list(ranked)
             pool_size = union_size
             converged = True
-            message = ("已達收斂輪次（第 {} 輪）且沒有可用的約束，從全目錄熱門商品中"
-                       "選出唯一的最終推薦。").format(session.turn)
+            message = (f"Turn limit reached (turn {session.turn}) with no usable "
+                       "constraints — settling on the most popular item as the "
+                       "single final recommendation.")
             chips = []
     else:
         ranked, pool, union_size = freeform_retrieve_with_pool(accumulated, AGENT.index,
@@ -392,28 +393,29 @@ def chat_turn(session: ChatSession, body: dict) -> dict:
             if NEGATIVE_RE.search(user_message):
                 # user rejected a small/ambiguous pool: offer a fresh direction
                 converged = False
-                message = "這些不行的話，換個方向？點一個類別，或直接告訴我你想找什麼："
+                message = "Not these? Try a different direction — pick a category or tell me what you want:"
                 chips = [{"type": "category", "label": label, "message": text}
                          for label, text in STARTER_CATEGORIES]
             elif clamped:
-                message = (f"已達收斂輪次（第 {session.turn} 輪），在精確符合的 {pool_size} 個候選中"
-                           "選出唯一的最終推薦。想換方向直接輸入新需求即可。")
+                message = (f"Turn limit reached (turn {session.turn}) — picked the single "
+                           f"final recommendation from {pool_size} exact matches. "
+                           "Type a new need to restart.")
             else:
-                message = (f"已收斂：精確符合 {pool_size} 個，選出唯一的最終推薦。"
-                           "想換方向直接輸入新需求即可。")
+                message = (f"Converged: {pool_size} exact matches. Final pick below — "
+                           "type a new need to restart.")
         else:
             facet, values = choose_facet(AGENT.index, pool, session.guide)
             if facet is None or not values:
                 converged = True
-                message = (f"精確符合 {pool_size} 個，選出唯一的最終推薦。"
-                           "想換方向直接輸入新需求即可。")
+                message = (f"Exact matches: {pool_size}. Final pick below — "
+                           "type a new need to restart.")
             else:
                 session.guide.guide_rounds += 1
                 session.guide.facet_keys.add(facet)
                 message = guide_message(pool_size, facet, values)
                 chips = option_labels(facet, values)
             if not converged:
-                chips.append({"type": "converge", "label": "就這些吧", "message": "就这些吧"})
+                chips.append({"type": "converge", "label": "That's it", "message": "that's it"})
     # ---- staged-filter funnel + consensus signals (the 2025 winners' pattern:
     # show the multi-stage narrowing pipeline and which routes voted) ----
     funnel = {"catalog": len(AGENT.index.products), "union": union_size if not session.guide.is_empty else None,
@@ -424,27 +426,27 @@ def chat_turn(session: ChatSession, body: dict) -> dict:
         corpus = AGENT.index.corpus[final_asin].lower()
         matched_kw = [kw for kw in accumulated.keywords if kw.lower() in corpus]
         if matched_kw:
-            signals.append(f"關鍵詞×{len(matched_kw)}")
+            signals.append(f"keywords x {len(matched_kw)}")
         if accumulated.materials & AGENT.index.material_sets[final_asin]:
-            signals.append("材質 ✓")
+            signals.append("material ✓")
         if accumulated.colors & AGENT.index.color_sets[final_asin]:
-            signals.append("顏色 ✓")
+            signals.append("color ✓")
         if accumulated.budget is not None and AGENT.index.prices[final_asin] is not None:
-            signals.append(f"預算 ${AGENT.index.prices[final_asin]:g}")
+            signals.append(f"budget ${AGENT.index.prices[final_asin]:g}")
         coarse_key = " ".join(accumulated.text.lower().split())
         if AGENT.index.category_coarse_key.get(final_asin) == coarse_key:
-            signals.append("精確類目 ✓")
+            signals.append("exact category ✓")
         if AGENT.dense is not None:
             try:
                 sims = AGENT.dense.query_scores(" ".join([*accumulated.keywords,
                                                           *accumulated.materials,
                                                           *accumulated.colors]), [final_asin])
                 if sims and sims[0][1] > 0.05:
-                    signals.append(f"語義相似 {sims[0][1]:.2f}")
+                    signals.append(f"semantic {sims[0][1]:.2f}")
             except Exception:
                 pass
         if usage.get("completion_tokens"):
-            signals.append("LLM 重排 ✓")
+            signals.append("LLM rerank ✓")
         rating, _ = AGENT.index.ratings[final_asin]
         if rating is not None:
             signals.append(f"★{rating}")
@@ -551,7 +553,7 @@ class Handler(BaseHTTPRequestHandler):
                 AGENT.llm = LLMReranker.from_local_defaults()
                 if AGENT.llm is None:
                     self._json({"ok": False, "configured": False,
-                                "error": "本機未找到 DeepSeek 憑證（~/.dsh/.credentials.yaml 或 DEEPSEEK_API_KEY）"}, 400)
+                                "error": "no local DeepSeek credentials found (~/.dsh/.credentials.yaml or DEEPSEEK_API_KEY)"}, 400)
                 else:
                     self._json({"ok": True, "configured": True, "model": AGENT.llm.model,
                                 "source": "local"})
@@ -560,7 +562,7 @@ class Handler(BaseHTTPRequestHandler):
             api_key = str(body.get("api_key") or "").strip()
             model = str(body.get("model") or "gpt-4o-mini").strip()
             if not api_base or not api_key:
-                self._json({"ok": False, "configured": False, "error": "api_base 與 api_key 不能為空"}, 400)
+                self._json({"ok": False, "configured": False, "error": "api_base and api_key must not be empty"}, 400)
                 return
             AGENT.llm = LLMReranker(api_base, api_key, model)
             self._json({"ok": True, "configured": True, "model": model})

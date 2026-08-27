@@ -25,35 +25,29 @@ COLOR_VALUES = ["black", "white", "blue", "red", "pink", "green", "brown",
                 "grey", "purple", "yellow", "orange"]
 MATERIAL_VALUES = ["cotton", "polyester", "nylon", "leather", "wool",
                    "spandex", "silk", "rayon", "denim", "down"]
-PRICE_BANDS = [(None, 20.0, "$20 以下"), (20.0, 50.0, "$20–50"),
-               (50.0, 100.0, "$50–100"), (100.0, None, "$100 以上")]
+PRICE_BANDS = [(None, 20.0, "$20 or less"), (20.0, 50.0, "$20–50"),
+               (50.0, 100.0, "$50–100"), (100.0, None, "$100 or more")]
 
-ZH_COLOR = {"black": "黑色", "white": "白色", "blue": "藍色", "red": "紅色",
-            "pink": "粉色", "green": "綠色", "brown": "棕色", "grey": "灰色",
-            "purple": "紫色", "yellow": "黃色", "orange": "橙色"}
-ZH_MATERIAL = {"cotton": "棉", "polyester": "聚酯", "nylon": "尼龍", "leather": "皮革",
-               "wool": "羊毛", "spandex": "氨綸", "silk": "絲綢", "rayon": "人造絲",
-               "denim": "牛仔", "down": "羽絨"}
-FACET_ZH = {"color": "顏色", "material": "材質", "price": "價格", "category": "品類"}
+FACET_ZH = {"color": "color", "material": "material", "price": "price", "category": "category"}
 TOKEN_RE = re.compile(r"[a-z0-9]+", re.IGNORECASE)
 
-CONVERGE_RE = re.compile(r"就这些|就這些|就这样|就這样|可以了|不用了|就这些吧|开始推荐|開始推薦")
-# explicit topic shift markers ("算了，改找一双运动鞋")
-SHIFT_RE = re.compile(r"算了|改找|不要了|換成|换成|重新找|不要这个|不要這個|换一个|換一個")
-# rejection feedback ("不是这个") reopens guidance on a converged session
-NEGATIVE_RE = re.compile(r"不是|不对|不對|不喜欢|不喜歡|换一批|換一批|都不行")
+CONVERGE_RE = re.compile(r"就这些|就這些|就这样|就這样|可以了|不用了|就这些吧|开始推荐|開始推薦|that's it|that is it|stop|done|good enough|these are fine")
+# explicit topic shift markers
+SHIFT_RE = re.compile(r"算了|改找|不要了|換成|换成|重新找|不要这个|不要這個|换一个|換一個|never mind|forget it|switch to|instead|something different")
+# rejection feedback reopens guidance on a converged session
+NEGATIVE_RE = re.compile(r"不是|不对|不對|不喜欢|不喜歡|换一批|換一批|都不行|not this|not these|wrong|none of these|anything else")
 CATEGORY_JUNK = {"clothing", "shoes", "jewelry", "women", "men", "girls", "boys",
                  "baby", "kids", "accessories", "fashion", "casual", "novelty", "apparel",
                  "more", "specific", "one", "two", "best", "new", "set", "size", "de", "la",
                  "sets", "yoga", "sport", "sports", "outdoor", "active", "lounge", "sleep"}
 
-# Curated starting categories for zero-information queries ("我想买件衣服")
+# Curated starting categories for zero-information queries
 STARTER_CATEGORIES = [
-    ("襯衫", "要 shirts"), ("褲子", "要 pants"), ("外套", "要 jacket"),
-    ("裙子", "要 skirt"), ("毛衣", "要 sweater"), ("T恤", "要 t-shirts"),
-    ("運動鞋", "要 sneakers"), ("靴子", "要 boots"), ("帽子", "要 hat"),
-    ("圍巾", "要 scarf"), ("包包", "要 bag"), ("手錶", "要 watch"),
-    ("皮帶", "要 belt"), ("首飾", "要 jewelry"),
+    ("Shirts", "shirts"), ("Pants", "pants"), ("Jackets", "jacket"),
+    ("Dresses", "dress"), ("Sweaters", "sweater"), ("T-Shirts", "t-shirts"),
+    ("Sneakers", "sneakers"), ("Boots", "boots"), ("Hats", "hat"),
+    ("Scarves", "scarf"), ("Bags", "bag"), ("Watches", "watch"),
+    ("Belts", "belt"), ("Jewelry", "jewelry"),
 ]
 
 
@@ -86,7 +80,7 @@ class GuideState:
         new_materials = query.materials - self.materials
         new_colors = query.colors - self.colors
         new_budget = query.budget is not None and query.budget != self.budget
-        # explicit topic shift ("算了，改找...") -> reset to a fresh intent
+        # explicit topic shift -> reset to a fresh intent
         if SHIFT_RE.search(text):
             self.keywords = list(new_keywords)
             self.last_keywords = list(new_keywords)
@@ -261,29 +255,27 @@ def hard_pool_size(index, state: GuideState) -> int:
 
 
 def option_labels(facet: str, values) -> list[dict]:
-    """Human labels + the message a click will send."""
+    """Human labels + the message a click will send (parser-friendly English)."""
     labels = []
     for value, count in values:
         if facet == "color":
-            zh = ZH_COLOR.get(value, value)
-            label = f"{zh}（{count}）"
-            message = f"颜色：{zh}"
+            label = f"{value.capitalize()} ({count})"
+            message = value
         elif facet == "material":
-            zh = ZH_MATERIAL.get(value, value)
-            label = f"{zh}（{count}）"
-            message = f"材质：{zh}"
+            label = f"{value.capitalize()} ({count})"
+            message = value
         elif facet == "price":
             low, high, label_text = value
-            label = f"{label_text}（{count}）"
+            label = f"{label_text} ({count})"
             if low is None:
-                message = f"预算{int(high)}美元以内"
+                message = f"budget under {int(high)} dollars"
             elif high is None:
-                message = f"预算{int(low)}美元以上"
+                message = f"budget {int((low + high) * 1.5)} dollars"
             else:
-                message = f"预算{int((low + high) / 2)}美元左右"
+                message = f"budget {int((low + high) / 2)} dollars"
         else:  # category token
-            label = f"{value}（{count}）"
-            message = f"要 {value}"
+            label = f"{value} ({count})"
+            message = value
         labels.append({"value": str(value if not isinstance(value, tuple) else value[2]),
                        "label": label, "message": message, "count": count})
     return labels
@@ -291,6 +283,6 @@ def option_labels(facet: str, values) -> list[dict]:
 
 def guide_message(pool_size: int, facet: str, values) -> str:
     if facet is None:
-        return f"已為你收斂到 {pool_size} 個候選，以下是目前最匹配的結果。"
-    options = "、".join(option_labels(facet, values)[:4][i]["label"] for i in range(min(4, len(values))))
-    return f"候選已收窄到 {pool_size} 個。按{FACET_ZH.get(facet, facet)}收斂最快：{options}"
+        return f"Converged to {pool_size} exact matches; here are the best candidates."
+    options = ", ".join(option_labels(facet, values)[:4][i]["label"] for i in range(min(4, len(values))))
+    return f"Narrowed to {pool_size} exact matches. Fastest to converge by {FACET_ZH.get(facet, facet)}: {options}"
