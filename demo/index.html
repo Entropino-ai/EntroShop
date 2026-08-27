@@ -114,9 +114,9 @@
   .fstep .bar div { height: 100%; background: linear-gradient(90deg, #27406e, var(--accent)); border-radius: 4px; }
   .fstep.finalstep .bar div { background: linear-gradient(90deg, #14532d, var(--green)); }
   .sig-row { margin: 6px 0 2px; }
-  /* ---- MiroFish-style world view ---- */
-  #world { display: none; background: radial-gradient(ellipse at 50% 42%, #0d1f33 0%, #0b0d13 70%);
-           border: 1px solid var(--line); border-radius: 12px; padding: 10px; margin: 12px 0; }
+  /* ---- chain-of-thought view ---- */
+  #chain { display: none; background: #0b0d13; border: 1px solid var(--line); border-radius: 12px;
+           padding: 10px; margin: 12px 0; }
   .wf-steps { display: flex; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
   .wf-step { font-size: 11px; color: var(--muted); background: var(--panel2);
              border: 1px solid var(--line); border-radius: 8px; padding: 4px 10px; }
@@ -124,18 +124,12 @@
   .wf-step.active { color: #fff; border-color: var(--green); }
   .wf-step.active .wf-num { color: var(--green); }
   .wf-step.done { border-color: #27406e; }
-  #world-canvas { position: relative; height: 62vh; overflow: hidden; border-radius: 10px;
-                  border: 1px solid #1a2438; cursor: grab; }
-  #world-canvas.dragging { cursor: grabbing; }
-  #world-g { position: absolute; inset: 0; transform-origin: 0 0; }
-  .fish { position: absolute; transform: translate(-50%, -50%); user-select: none;
-          transition: left 1.2s cubic-bezier(.4,0,.2,1), top 1.2s cubic-bezier(.4,0,.2,1),
-                      opacity .9s, filter .3s; animation: spawn .5s ease; line-height: 1; }
-  .fish.alive { filter: drop-shadow(0 0 6px rgba(79,140,255,.45)); }
-  .fish.dead { opacity: .12; filter: grayscale(1); }
-  .fish.final { filter: drop-shadow(0 0 14px rgba(52,211,153,.9)); z-index: 5; }
-  @keyframes spawn { from { opacity: 0; transform: translate(-50%,-50%) scale(0); }
-                     to { opacity: 1; transform: translate(-50%,-50%) scale(1); } }
+  #chain-canvas { overflow: hidden; cursor: grab; border-radius: 10px;
+                  border: 1px solid #1a2438; }
+  #chain-canvas.dragging { cursor: grabbing; }
+  #chain-svg { width: 100%; height: 68vh; display: block; background: #0b0d13; }
+  .cnode rect { transition: filter .15s; }
+  .cnode:hover rect { filter: brightness(1.4); }
   .wf-hud { font-size: 11px; color: var(--muted); margin-top: 6px; }
   .wf-legend { font-size: 10px; color: var(--muted); margin-top: 4px; }
 </style>
@@ -160,23 +154,23 @@
     <button id="btn-new" class="primary">New session</button>
     <button id="btn-step">Next turn</button>
     <button id="btn-auto">▶ Auto-play</button>
-    <button id="btn-world">🌊 World view</button>
+    <button id="btn-chain">🧠 Chain of thought</button>
   </div>
 </header>
 <div class="layout">
   <div id="chat">
     <div class="empty" id="empty">Click "New session" to start</div>
     <div id="banner"></div>
-    <div id="world">
+    <div id="chain">
       <div class="wf-steps">
         <div class="wf-step" id="wf1"><span class="wf-num">01</span>Seed message</div>
         <div class="wf-step" id="wf2"><span class="wf-num">02</span>Intent graph</div>
-        <div class="wf-step" id="wf3"><span class="wf-num">03</span>Swarm simulation</div>
+        <div class="wf-step" id="wf3"><span class="wf-num">03</span>Reasoning chain</div>
         <div class="wf-step" id="wf4"><span class="wf-num">04</span>Forecast</div>
       </div>
-      <div id="world-canvas"><div id="world-g"></div></div>
+      <div id="chain-canvas"><svg id="chain-svg" viewBox="0 0 900 300"><g id="chain-g"></g></svg></div>
       <div class="wf-hud" id="wf-hud"></div>
-      <div class="wf-legend">🐟 surviving candidates (closer to center = higher rank) · dim = eliminated · 👑 = final pick · hover for product · wheel to zoom · drag to pan</div>
+      <div class="wf-legend">🧠 reasoning chain: spine = conversation timeline · each turn fans out its reasoning steps (parse → route → slots → retrieve → decide → final) · wheel to zoom · drag to pan</div>
     </div>
     <div id="turns"></div>
     <div id="chat-input" style="display:none">
@@ -249,68 +243,103 @@ const api = async (path, body) => {
   return res.json();
 };
 const state = { sid: null, mode: 'demo', auto: false, timer: null, next: null, done: false, turn: 0,
-                tokP: 0, tokC: 0, lastUserMessage: '', traces: [], worldView: false };
+                tokP: 0, tokC: 0, lastUserMessage: '', traces: [], chainView: false };
 const LLM_STORE = 'techjam_llm';
 
-// ---------------- MiroFish-style world view ----------------
-const worldPan = { x: 0, y: 0, s: 1, dragging: false, sx: 0, sy: 0 };
+// ---------------- chain-of-thought view ----------------
+const KIND_COLORS = { input: '#4f8cff', decision: '#fbbf24', state: '#34d399',
+                      funnel: '#a78bfa', output: '#f472b6' };
+const chainPan = { x: 0, y: 0, s: 1, dragging: false, sx: 0, sy: 0 };
 function setStep(id, active, done) {
   const el = $(id);
   el.classList.toggle('active', !!active);
   el.classList.toggle('done', !!done);
 }
-function renderWorld(w, r) {
-  if (!w) return;
+function cnode(x, y, name, detail, kind) {
+  const c = KIND_COLORS[kind] || '#9aa3b8';
+  const crown = kind === 'output' ? '👑 ' : '';
+  return `<g class="cnode">
+    <rect x="${x - 95}" y="${y - 25}" width="190" height="50" rx="9" fill="#171a23"
+          stroke="${c}" stroke-width="1.5"/>
+    <text x="${x}" y="${y - 6}" text-anchor="middle" fill="${c}" font-size="12" font-weight="700">${crown}${esc(name)}</text>
+    <text x="${x}" y="${y + 10}" text-anchor="middle" fill="#9aa3b8" font-size="9.5">${esc(String(detail).slice(0, 42))}</text>
+  </g>`;
+}
+function cedge(x1, y1, x2, y2) {
+  const mx = (x1 + x2) / 2;
+  return `<path d="M ${x1} ${y1} C ${mx} ${y1}, ${mx} ${y2}, ${x2} ${y2}" fill="none"
+          stroke="#3a4157" stroke-width="1.4"/>`;
+}
+function renderChain() {
+  const traces = state.traces;
+  if (!traces.length) return;
+  const maxSteps = Math.max(...traces.map(t => (t.steps || []).length));
+  const W = 360 + maxSteps * 200;
+  const H = 120 + traces.length * 140;
+  const svg = $('chain-svg');
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  svg.setAttribute('width', W); svg.setAttribute('height', H);
+  let g = `<path d="M 80 50 L 80 ${H - 50}" stroke="#3a4157" stroke-width="2"/>`;
+  traces.forEach((t, ti) => {
+    const y = 110 + ti * 140;
+    const last = t.steps && t.steps.length;
+    g += `<g><circle cx="80" cy="${y}" r="8" fill="#4f8cff"/>
+          <text x="80" y="${y + 26}" text-anchor="middle" fill="#e8eaf2" font-size="11" font-weight="700">Turn ${t.turn}</text></g>`;
+    let px = 80, py = y;
+    (t.steps || []).forEach((s, si) => {
+      const x = 250 + si * 200;
+      g += cedge(px, py, x, y);
+      g += cnode(x, y, s.name, s.detail, s.kind);
+      px = x; py = y;
+    });
+  });
+  $('chain-g').innerHTML = g;
+  applyChainPan();
+}
+function applyChainPan() {
+  $('chain-g').setAttribute('transform', `translate(${chainPan.x} ${chainPan.y}) scale(${chainPan.s})`);
+}
+function renderSteps(r) {
   const q = r.query || {};
   const hasSlots = (q.keywords || []).length + (q.materials || []).length
                  + (q.colors || []).length + (q.budget != null ? 1 : 0);
-  const converged = !!w.converged;
+  const converged = !!(r.guide && r.guide.converged) || !!(r.hit);
   setStep('wf1', state.turn >= 1, hasSlots > 0);
-  setStep('wf2', hasSlots > 0, w.alive_count <= 200 && !converged);
-  setStep('wf3', w.alive_count > 1 && hasSlots > 0, converged);
+  setStep('wf2', hasSlots > 0, !converged);
+  setStep('wf3', state.traces.length > 0, converged);
   setStep('wf4', converged, false);
-  $('wf-hud').innerHTML = `Surviving entities <b class="stat">${w.alive_count}</b> · Turn <b class="stat">${state.turn}</b>` +
-    (converged ? ' · <b style="color:var(--green)">✅ swarm converged</b>' : '');
-  const g = $('world-g');
-  const nodes = (w.entities || []).map(e => {
-    const dist = Math.hypot(e.x - 0.5, e.y - 0.5);
-    const size = e.final ? 32 : Math.max(8, Math.round(9 + (0.48 - dist) * 26));
-    return `<div class="fish ${e.alive ? 'alive' : 'dead'}${e.final ? ' final' : ''}"
-      style="left:${(e.x * 100).toFixed(2)}%;top:${(e.y * 100).toFixed(2)}%;font-size:${size}px"
-      title="${esc(e.title)}">${e.final ? '👑🐟' : '🐟'}</div>`;
-  }).join('');
-  g.innerHTML = nodes;
-  applyWorldPan();
+  $('wf-hud').innerHTML = `Reasoning steps <b class="stat">${state.traces.reduce((n, t) => n + (t.steps || []).length, 0)}</b> · Turn <b class="stat">${state.turn}</b>` +
+    (converged ? ' · <b style="color:var(--green)">✅ converged</b>' : '');
 }
-function applyWorldPan() {
-  $('world-g').style.transform = `translate(${worldPan.x}px, ${worldPan.y}px) scale(${worldPan.s})`;
+function toggleChain() {
+  state.chainView = !state.chainView;
+  $('chain').style.display = state.chainView ? 'block' : 'none';
+  $('btn-chain').classList.toggle('primary', state.chainView);
+  if (state.chainView) {
+    renderChain();
+    if (state.lastResponse) renderSteps(state.lastResponse);
+  }
 }
-function toggleWorld() {
-  state.worldView = !state.worldView;
-  $('world').style.display = state.worldView ? 'block' : 'none';
-  $('btn-world').classList.toggle('primary', state.worldView);
-  if (state.worldView && state.lastWorld) renderWorld(state.lastWorld, state.lastResponse || {});
-}
-$('btn-world').onclick = toggleWorld;
-$('world-canvas').addEventListener('wheel', e => {
+$('btn-chain').onclick = toggleChain;
+$('chain-canvas').addEventListener('wheel', e => {
   e.preventDefault();
-  worldPan.s = Math.min(3, Math.max(0.35, worldPan.s * (e.deltaY < 0 ? 1.12 : 0.89)));
-  applyWorldPan();
+  chainPan.s = Math.min(3, Math.max(0.35, chainPan.s * (e.deltaY < 0 ? 1.12 : 0.89)));
+  applyChainPan();
 }, { passive: false });
-$('world-canvas').addEventListener('pointerdown', e => {
-  worldPan.dragging = true; worldPan.sx = e.clientX; worldPan.sy = e.clientY;
-  $('world-canvas').classList.add('dragging');
+$('chain-canvas').addEventListener('pointerdown', e => {
+  chainPan.dragging = true; chainPan.sx = e.clientX; chainPan.sy = e.clientY;
+  $('chain-canvas').classList.add('dragging');
 });
 window.addEventListener('pointermove', e => {
-  if (!worldPan.dragging) return;
-  worldPan.x += (e.clientX - worldPan.sx);
-  worldPan.y += (e.clientY - worldPan.sy);
-  worldPan.sx = e.clientX; worldPan.sy = e.clientY;
-  applyWorldPan();
+  if (!chainPan.dragging) return;
+  chainPan.x += (e.clientX - chainPan.sx) / chainPan.s;
+  chainPan.y += (e.clientY - chainPan.sy) / chainPan.s;
+  chainPan.sx = e.clientX; chainPan.sy = e.clientY;
+  applyChainPan();
 });
 window.addEventListener('pointerup', () => {
-  worldPan.dragging = false;
-  $('world-canvas').classList.remove('dragging');
+  chainPan.dragging = false;
+  $('chain-canvas').classList.remove('dragging');
 });
 
 // ---------------- health / dense backend badge ----------------
@@ -517,11 +546,11 @@ function renderTurn(r) {
   state.lastUserMessage = r.user_message || state.lastUserMessage;
   if (r.trace) {
     state.traces.push(r.trace);
-  }
-  if (r.world) {
-    state.lastWorld = r.world;
     state.lastResponse = r;
-    if (state.worldView) renderWorld(r.world, r);
+    if (state.chainView) {
+      renderChain();
+      renderSteps(r);
+    }
   }
   if (r.usage) {
     state.tokP += r.usage.prompt_tokens || 0;
@@ -564,8 +593,8 @@ async function newSession() {
   state.sid = r.session_id; state.turn = 0; state.done = false; state.next = r.first_user_message;
   state.tokP = 0; state.tokC = 0; state.traces = [];
   $('s-tok-p').textContent = '0'; $('s-tok-c').textContent = '0';
-  state.lastWorld = null; state.lastResponse = null;
-  $('world-g').innerHTML = '';
+  state.lastResponse = null;
+  $('chain-g').innerHTML = '';
   $('wf-hud').textContent = '';
   $('chat-input').style.display = state.mode === 'chat' ? 'flex' : 'none';
   $('hint').textContent = state.mode === 'chat'
