@@ -157,19 +157,15 @@
     <span id="llm-chip" class="badge llm-chip" title="Configure LLM rerank">LLM: loading…</span>
     <span id="dense-chip" class="badge" title="dense retrieval backend">Dense: —</span>
     <select id="mode">
-      <option value="demo" selected>Auto demo (official simulator)</option>
-      <option value="chat">Free chat</option>
-    </select>
-    <select id="scenario" title="Demo scenario">
-      <option value="random">Random</option>
-      <option value="buying">buying · high-intent</option>
-      <option value="browsing">browsing · exploring</option>
-      <option value="intent_override">intent_override</option>
-      <option value="boundary">boundary · no-preference</option>
+      <option value="chat" selected>Free chat</option>
+      <option value="random">Example · random</option>
+      <option value="buying">Example · buying</option>
+      <option value="browsing">Example · browsing</option>
+      <option value="intent_override">Example · intent override</option>
+      <option value="boundary">Example · boundary</option>
     </select>
     <button id="btn-new" class="primary">New session</button>
     <button id="btn-step">Next turn</button>
-    <button id="btn-auto">▶ Auto-play</button>
     <button id="btn-arena">🌊 MiroFish Arena</button>
   </div>
 </header>
@@ -260,7 +256,7 @@ const api = async (path, body) => {
                                  body: JSON.stringify(body || {}) });
   return res.json();
 };
-const state = { sid: null, mode: 'demo', auto: false, timer: null, next: null, done: false, turn: 0,
+const state = { sid: null, mode: 'chat', next: null, done: false, turn: 0,
                 tokP: 0, tokC: 0, lastUserMessage: '', traces: [], arenaView: false };
 const LLM_STORE = 'techjam_llm';
 
@@ -619,7 +615,6 @@ function renderTurn(r) {
   }
   if (r.hit) {
     $('banner').innerHTML = `<div class="hit-banner">🎯 Hit! Turn ${r.hit_turn} · rank #${r.hit_rank} · pool converged</div>`;
-    stopAuto();
   } else if (r.done) {
     if (state.mode === 'chat') {
       $('banner').innerHTML = `<div class="done-banner">⏹ 10-turn limit reached (matches the competition). Click "New session".</div>`;
@@ -627,7 +622,6 @@ function renderTurn(r) {
     } else {
       $('banner').innerHTML = `<div class="done-banner">⚠️ 10 turns exhausted without a hit (ambiguous boilerplate session)</div>`;
     }
-    stopAuto();
   }
 }
 async function sendChat(text) {
@@ -640,14 +634,13 @@ $('turns').addEventListener('click', e => {
   if (chip) sendChat(chip.getAttribute('data-guide-msg'));
 });
 async function newSession() {
-  stopAuto();
   $('turns').innerHTML = '';
   $('banner').innerHTML = '';
   $('s-mat').textContent = '—'; $('s-col').textContent = '—'; $('s-budget').textContent = '—';
   chips($('s-phrases'), []); chips($('s-sup'), []); chips($('s-parsed'), []);
-  state.mode = $('mode').value;
-  const body = { mode: state.mode };
-  if (state.mode === 'demo') body.scenario = $('scenario').value;
+  const choice = $('mode').value;
+  state.mode = choice === 'chat' ? 'chat' : 'demo';
+  const body = choice === 'chat' ? { mode: 'chat' } : { mode: 'demo', scenario: choice };
   const r = await api('/api/new', body);
   state.sid = r.session_id; state.turn = 0; state.done = false; state.next = r.first_user_message;
   state.tokP = 0; state.tokC = 0; state.traces = [];
@@ -659,9 +652,10 @@ async function newSession() {
   Object.keys(fishEls).forEach(k => delete fishEls[k]);
   Object.keys(fishWasAlive).forEach(k => delete fishWasAlive[k]);
   $('chat-input').style.display = state.mode === 'chat' ? 'flex' : 'none';
+  $('btn-step').disabled = state.mode !== 'demo';
   $('hint').textContent = state.mode === 'chat'
-    ? 'Hint: Chinese or English free-form input; every turn shows recommendations and clickable filters that converge to a single final pick. Two turns without new info auto-converge.'
-    : 'Auto demo replays the official evaluator simulator, disclosing constraints turn by turn.';
+    ? 'Type in Chinese or English — every turn shows recommendations and clickable filters that converge to a single final pick.'
+    : 'Example replays the official evaluator simulator — click "Next turn" to step through it, or switch to Free chat to type your own request.';
   renderTarget(r.target); renderProfile(r.profile);
   if (state.mode === 'demo' && r.first_user_message) {
     // show the opening customer message without consuming a turn yet
@@ -676,16 +670,8 @@ async function doTurn() {
   const r = await api('/api/turn', { session_id: state.sid, user_message: state.next });
   renderTurn(r);
 }
-function startAuto() { state.auto = true; $('btn-auto').textContent = '⏸ Pause';
-  state.timer = setInterval(async () => {
-    if (state.done || !state.sid) { stopAuto(); return; }
-    await doTurn();
-  }, 1100); }
-function stopAuto() { state.auto = false; clearInterval(state.timer);
-  $('btn-auto').textContent = '▶ Auto-play'; }
 $('btn-new').onclick = newSession;
 $('btn-step').onclick = doTurn;
-$('btn-auto').onclick = () => state.auto ? stopAuto() : startAuto();
 $('mode').onchange = newSession;
 $('btn-send').onclick = () => {
   const input = $('user-input'); const text = input.value.trim();
