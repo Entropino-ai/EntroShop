@@ -185,6 +185,15 @@ user message
 | `demo/` | interactive UI server, arena + chain-of-thought, MCP stdio entry |
 | `analysis/` | development probes, offline tuners, policy grids |
 
+## Robustness (synthetic stress)
+
+Synthetic data — 300 mini-private-set sessions (40% deliberately
+generic-feature products) plus 23 adversarial chat inputs — is bundled in
+[`STRESS_TEST.md`](STRESS_TEST.md) and reproducible via
+`analysis/synthetic_stress.py`. Headline: no retrieval bugs (`not-in-pool` =
+0); all synthetic misses are family-ambiguous sessions at the disclosed-
+information bound; the adversarial chat battery runs 23/23 without crashes.
+
 ## Benchmarks
 
 | Metric | BM25 baseline | EntroShop |
