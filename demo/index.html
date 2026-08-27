@@ -728,10 +728,14 @@ async function newSession() {
   $('wf-hud').textContent = '';
   Object.keys(fishEls).forEach(k => delete fishEls[k]);
   Object.keys(fishWasAlive).forEach(k => delete fishWasAlive[k]);
-  $('chat-input').style.display = state.mode === 'chat' ? 'flex' : 'none';
-    $('hint').textContent = state.mode === 'chat'
+  // Send button always visible: chat sends text, examples advance the simulator
+  $('chat-input').style.display = 'flex';
+  $('user-input').placeholder = state.mode === 'chat'
+    ? 'Type your request (Chinese or English)'
+    : 'Example running — press Send / Enter to step the simulator';
+  $('hint').textContent = state.mode === 'chat'
     ? 'Type in Chinese or English — every turn shows recommendations and clickable filters that converge to a single final pick.'
-    : 'Example replays the official evaluator simulator — click "Next turn" to step through it, or switch to Free chat to type your own request.';
+    : 'Example replays the official evaluator simulator — press Send / Enter to advance one turn; switch to Free chat to type your own request.';
   renderTarget(r.target); renderProfile(r.profile);
   if (state.mode === 'demo' && r.first_user_message) {
     // show the opening customer message without consuming a turn yet
