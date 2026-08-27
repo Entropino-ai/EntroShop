@@ -4,6 +4,8 @@
 
 **TikTok TechJam 2026 · Track 4 — Shopping Copilot: AI Conversational Search & Recommendations**
 
+> 📖 Full project documentation (mini-paper + manual): [`docs/PROJECT.md`](docs/PROJECT.md)
+
 | | Weak BM25 baseline | EntroShop |
 |---|---|---|
 | **Hit Rate@10** | 0.125 | **1.000** 🎯 |
