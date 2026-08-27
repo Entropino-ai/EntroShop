@@ -1,0 +1,19 @@
+# macOS
+.DS_Store
+
+# Python
+__pycache__/
+*.py[cod]
+.env
+
+# Data artifacts (downloadable from the official kit)
+data/
+data/*.jsonl
+data/*.jsonl.gz
+
+# Heavy optional assets
+vendor/
+data/models/
+
+# Evaluator outputs
+results.json
