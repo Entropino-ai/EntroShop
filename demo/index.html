@@ -114,8 +114,8 @@
   .fstep .bar div { height: 100%; background: linear-gradient(90deg, #27406e, var(--accent)); border-radius: 4px; }
   .fstep.finalstep .bar div { background: linear-gradient(90deg, #14532d, var(--green)); }
   .sig-row { margin: 6px 0 2px; }
-  /* ---- chain-of-thought view ---- */
-  #chain { display: none; background: #0b0d13; border: 1px solid var(--line); border-radius: 12px;
+  /* ---- MiroFish-style adversarial arena ---- */
+  #arena { display: none; background: #0b0d13; border: 1px solid var(--line); border-radius: 12px;
            padding: 10px; margin: 12px 0; }
   .wf-steps { display: flex; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
   .wf-step { font-size: 11px; color: var(--muted); background: var(--panel2);
@@ -124,14 +124,30 @@
   .wf-step.active { color: #fff; border-color: var(--green); }
   .wf-step.active .wf-num { color: var(--green); }
   .wf-step.done { border-color: #27406e; }
-  #chain-canvas { overflow: hidden; cursor: grab; border-radius: 10px;
-                  border: 1px solid #1a2438; }
-  #chain-canvas.dragging { cursor: grabbing; }
-  #chain-svg { width: 100%; height: 68vh; display: block; background: #0b0d13; }
-  .cnode rect { transition: filter .15s; }
-  .cnode:hover rect { filter: brightness(1.4); }
+  #arena-canvas { position: relative; height: 52vh; overflow: hidden; border-radius: 10px;
+                  border: 1px solid #1a2438; cursor: grab;
+                  background: radial-gradient(ellipse at 50% 42%, #0d1f33 0%, #0b0d13 72%); }
+  #arena-canvas.dragging { cursor: grabbing; }
+  #arena-g { position: absolute; inset: 0; transform-origin: 0 0; }
+  .fish { position: absolute; transform: translate(-50%, -50%); user-select: none;
+          line-height: 1; transition: left 1.1s cubic-bezier(.4,0,.2,1),
+                      top 1.1s cubic-bezier(.4,0,.2,1), opacity .8s, filter .3s;
+          animation: spawn .5s ease; }
+  .fish.alive { filter: drop-shadow(0 0 6px rgba(79,140,255,.5)); }
+  .fish.dead { opacity: .1; filter: grayscale(1) blur(.5px); }
+  .fish.final { filter: drop-shadow(0 0 16px rgba(52,211,153,.95)); z-index: 5; }
+  .fish.ko { animation: knockout .9s ease; }
+  @keyframes spawn { from { opacity: 0; transform: translate(-50%,-50%) scale(0); }
+                     to { opacity: 1; transform: translate(-50%,-50%) scale(1); } }
+  @keyframes knockout { 0% { filter: drop-shadow(0 0 10px rgba(248,113,113,.9)); opacity: 1; }
+                        100% { filter: grayscale(1); opacity: .1; } }
   .wf-hud { font-size: 11px; color: var(--muted); margin-top: 6px; }
   .wf-legend { font-size: 10px; color: var(--muted); margin-top: 4px; }
+  .chainpanel-head { font-size: 11px; color: var(--accent); margin: 10px 0 4px; font-weight: 700; }
+  #chainpanel { border: 1px solid #1a2438; border-radius: 10px; overflow: hidden; }
+  #chainpanel-svg { width: 100%; height: 34vh; display: block; background: #0b0d13; }
+  .cnode rect { transition: filter .15s; }
+  .cnode:hover rect { filter: brightness(1.4); }
 </style>
 </head>
 <body>
@@ -154,23 +170,25 @@
     <button id="btn-new" class="primary">New session</button>
     <button id="btn-step">Next turn</button>
     <button id="btn-auto">▶ Auto-play</button>
-    <button id="btn-chain">🧠 Chain of thought</button>
+    <button id="btn-arena">🌊 MiroFish Arena</button>
   </div>
 </header>
 <div class="layout">
   <div id="chat">
     <div class="empty" id="empty">Click "New session" to start</div>
     <div id="banner"></div>
-    <div id="chain">
+    <div id="arena">
       <div class="wf-steps">
         <div class="wf-step" id="wf1"><span class="wf-num">01</span>Seed message</div>
         <div class="wf-step" id="wf2"><span class="wf-num">02</span>Intent graph</div>
-        <div class="wf-step" id="wf3"><span class="wf-num">03</span>Reasoning chain</div>
+        <div class="wf-step" id="wf3"><span class="wf-num">03</span>Adversarial arena</div>
         <div class="wf-step" id="wf4"><span class="wf-num">04</span>Forecast</div>
       </div>
-      <div id="chain-canvas"><svg id="chain-svg" viewBox="0 0 900 300"><g id="chain-g"></g></svg></div>
+      <div id="arena-canvas"><div id="arena-g"></div></div>
       <div class="wf-hud" id="wf-hud"></div>
-      <div class="wf-legend">🧠 reasoning chain: spine = conversation timeline · each turn fans out its reasoning steps (parse → route → slots → retrieve → decide → final) · wheel to zoom · drag to pan</div>
+      <div class="wf-legend">⚔️ adversarial arena: candidates compete, knocked out each round, only the 👑 champion survives · closer to center = higher rank · hover for product · wheel to zoom · drag to pan</div>
+      <div class="chainpanel-head">🧠 Reasoning chain of the champion</div>
+      <div id="chainpanel"><svg id="chainpanel-svg" viewBox="0 0 900 200"><g id="chain-g2"></g></svg></div>
     </div>
     <div id="turns"></div>
     <div id="chat-input" style="display:none">
@@ -243,18 +261,75 @@ const api = async (path, body) => {
   return res.json();
 };
 const state = { sid: null, mode: 'demo', auto: false, timer: null, next: null, done: false, turn: 0,
-                tokP: 0, tokC: 0, lastUserMessage: '', traces: [], chainView: false };
+                tokP: 0, tokC: 0, lastUserMessage: '', traces: [], arenaView: false };
 const LLM_STORE = 'techjam_llm';
 
-// ---------------- chain-of-thought view ----------------
+// ---------------- MiroFish-style adversarial arena ----------------
 const KIND_COLORS = { input: '#4f8cff', decision: '#fbbf24', state: '#34d399',
                       funnel: '#a78bfa', output: '#f472b6' };
-const chainPan = { x: 0, y: 0, s: 1, dragging: false, sx: 0, sy: 0 };
+const arenaPan = { x: 0, y: 0, s: 1, dragging: false, sx: 0, sy: 0 };
+const fishEls = {};       // asin -> element (keyed: identity preserved -> real swimming)
+const fishWasAlive = {};  // knockout detection
 function setStep(id, active, done) {
   const el = $(id);
   el.classList.toggle('active', !!active);
   el.classList.toggle('done', !!done);
 }
+function renderArena(w, r) {
+  if (!w) return;
+  const q = r.query || {};
+  const hasSlots = (q.keywords || []).length + (q.materials || []).length
+                 + (q.colors || []).length + (q.budget != null ? 1 : 0);
+  const converged = !!w.converged || !!r.hit;
+  setStep('wf1', state.turn >= 1, hasSlots > 0);
+  setStep('wf2', hasSlots > 0, !converged);
+  setStep('wf3', w.alive_count > 0, converged);
+  setStep('wf4', converged, false);
+  $('wf-hud').innerHTML = `⚔️ alive <b class="stat">${w.alive_count}</b> · eliminated <b class="stat">${(w.entities||[]).length - w.alive_count}</b> · Turn <b class="stat">${state.turn}</b>` +
+    (converged ? ' · <b style="color:var(--green)">👑 champion crowned</b>' : '');
+  const g = $('arena-g');
+  const seen = new Set();
+  (w.entities || []).forEach(e => {
+    seen.add(e.asin);
+    let el = fishEls[e.asin];
+    if (!el) {
+      el = document.createElement('div');
+      el.className = 'fish';
+      el.textContent = '🐟';
+      el.title = e.title;
+      g.appendChild(el);
+      fishEls[e.asin] = el;
+      fishWasAlive[e.asin] = e.alive;
+    }
+    const wasAlive = fishWasAlive[e.asin];
+    el.style.left = (e.x * 100).toFixed(2) + '%';
+    el.style.top = (e.y * 100).toFixed(2) + '%';
+    el.title = e.title;
+    el.className = 'fish ' + (e.alive ? 'alive' : 'dead') + (e.final ? ' final' : '');
+    if (e.final) {
+      el.textContent = '👑🐟';
+      el.style.fontSize = '34px';
+    } else {
+      el.textContent = '🐟';
+      const d = Math.hypot(e.x - 0.5, e.y - 0.5);
+      el.style.fontSize = Math.max(8, Math.round(9 + (0.48 - d) * 26)) + 'px';
+    }
+    if (wasAlive && !e.alive) {           // knocked out this round
+      el.classList.add('ko');
+      setTimeout(() => el.classList.remove('ko'), 950);
+    }
+    fishWasAlive[e.asin] = e.alive;
+  });
+  Object.keys(fishEls).forEach(asin => {
+    if (!seen.has(asin)) { fishEls[asin].remove(); delete fishEls[asin]; delete fishWasAlive[asin]; }
+  });
+  applyArenaPan();
+  renderChainPanel();
+}
+function applyArenaPan() {
+  $('arena-g').style.transform = `translate(${arenaPan.x}px, ${arenaPan.y}px) scale(${arenaPan.s})`;
+}
+// ---- chain of thought (champion's reasoning) ----
 function cnode(x, y, name, detail, kind) {
   const c = KIND_COLORS[kind] || '#9aa3b8';
   const crown = kind === 'output' ? '👑 ' : '';
@@ -270,19 +345,18 @@ function cedge(x1, y1, x2, y2) {
   return `<path d="M ${x1} ${y1} C ${mx} ${y1}, ${mx} ${y2}, ${x2} ${y2}" fill="none"
           stroke="#3a4157" stroke-width="1.4"/>`;
 }
-function renderChain() {
+function renderChainPanel() {
   const traces = state.traces;
   if (!traces.length) return;
   const maxSteps = Math.max(...traces.map(t => (t.steps || []).length));
   const W = 360 + maxSteps * 200;
-  const H = 120 + traces.length * 140;
-  const svg = $('chain-svg');
+  const H = 120 + traces.length * 130;
+  const svg = $('chainpanel-svg');
   svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
   svg.setAttribute('width', W); svg.setAttribute('height', H);
   let g = `<path d="M 80 50 L 80 ${H - 50}" stroke="#3a4157" stroke-width="2"/>`;
   traces.forEach((t, ti) => {
-    const y = 110 + ti * 140;
-    const last = t.steps && t.steps.length;
+    const y = 110 + ti * 130;
     g += `<g><circle cx="80" cy="${y}" r="8" fill="#4f8cff"/>
           <text x="80" y="${y + 26}" text-anchor="middle" fill="#e8eaf2" font-size="11" font-weight="700">Turn ${t.turn}</text></g>`;
     let px = 80, py = y;
@@ -293,53 +367,37 @@ function renderChain() {
       px = x; py = y;
     });
   });
-  $('chain-g').innerHTML = g;
-  applyChainPan();
+  $('chain-g2').innerHTML = g;
 }
-function applyChainPan() {
-  $('chain-g').setAttribute('transform', `translate(${chainPan.x} ${chainPan.y}) scale(${chainPan.s})`);
-}
-function renderSteps(r) {
-  const q = r.query || {};
-  const hasSlots = (q.keywords || []).length + (q.materials || []).length
-                 + (q.colors || []).length + (q.budget != null ? 1 : 0);
-  const converged = !!(r.guide && r.guide.converged) || !!(r.hit);
-  setStep('wf1', state.turn >= 1, hasSlots > 0);
-  setStep('wf2', hasSlots > 0, !converged);
-  setStep('wf3', state.traces.length > 0, converged);
-  setStep('wf4', converged, false);
-  $('wf-hud').innerHTML = `Reasoning steps <b class="stat">${state.traces.reduce((n, t) => n + (t.steps || []).length, 0)}</b> · Turn <b class="stat">${state.turn}</b>` +
-    (converged ? ' · <b style="color:var(--green)">✅ converged</b>' : '');
-}
-function toggleChain() {
-  state.chainView = !state.chainView;
-  $('chain').style.display = state.chainView ? 'block' : 'none';
-  $('btn-chain').classList.toggle('primary', state.chainView);
-  if (state.chainView) {
-    renderChain();
-    if (state.lastResponse) renderSteps(state.lastResponse);
+function toggleArena() {
+  state.arenaView = !state.arenaView;
+  $('arena').style.display = state.arenaView ? 'block' : 'none';
+  $('btn-arena').classList.toggle('primary', state.arenaView);
+  if (state.arenaView) {
+    if (state.lastWorld) renderArena(state.lastWorld, state.lastResponse || {});
+    else renderChainPanel();
   }
 }
-$('btn-chain').onclick = toggleChain;
-$('chain-canvas').addEventListener('wheel', e => {
+$('btn-arena').onclick = toggleArena;
+$('arena-canvas').addEventListener('wheel', e => {
   e.preventDefault();
-  chainPan.s = Math.min(3, Math.max(0.35, chainPan.s * (e.deltaY < 0 ? 1.12 : 0.89)));
-  applyChainPan();
+  arenaPan.s = Math.min(3, Math.max(0.35, arenaPan.s * (e.deltaY < 0 ? 1.12 : 0.89)));
+  applyArenaPan();
 }, { passive: false });
-$('chain-canvas').addEventListener('pointerdown', e => {
-  chainPan.dragging = true; chainPan.sx = e.clientX; chainPan.sy = e.clientY;
-  $('chain-canvas').classList.add('dragging');
+$('arena-canvas').addEventListener('pointerdown', e => {
+  arenaPan.dragging = true; arenaPan.sx = e.clientX; arenaPan.sy = e.clientY;
+  $('arena-canvas').classList.add('dragging');
 });
 window.addEventListener('pointermove', e => {
-  if (!chainPan.dragging) return;
-  chainPan.x += (e.clientX - chainPan.sx) / chainPan.s;
-  chainPan.y += (e.clientY - chainPan.sy) / chainPan.s;
-  chainPan.sx = e.clientX; chainPan.sy = e.clientY;
-  applyChainPan();
+  if (!arenaPan.dragging) return;
+  arenaPan.x += (e.clientX - arenaPan.sx) / arenaPan.s;
+  arenaPan.y += (e.clientY - arenaPan.sy) / arenaPan.s;
+  arenaPan.sx = e.clientX; arenaPan.sy = e.clientY;
+  applyArenaPan();
 });
 window.addEventListener('pointerup', () => {
-  chainPan.dragging = false;
-  $('chain-canvas').classList.remove('dragging');
+  arenaPan.dragging = false;
+  $('arena-canvas').classList.remove('dragging');
 });
 
 // ---------------- health / dense backend badge ----------------
@@ -547,10 +605,11 @@ function renderTurn(r) {
   if (r.trace) {
     state.traces.push(r.trace);
     state.lastResponse = r;
-    if (state.chainView) {
-      renderChain();
-      renderSteps(r);
-    }
+    if (state.arenaView) renderArena(r.world, r);
+  }
+  if (r.world) {
+    state.lastWorld = r.world;
+    state.lastResponse = r;
   }
   if (r.usage) {
     state.tokP += r.usage.prompt_tokens || 0;
@@ -593,9 +652,12 @@ async function newSession() {
   state.sid = r.session_id; state.turn = 0; state.done = false; state.next = r.first_user_message;
   state.tokP = 0; state.tokC = 0; state.traces = [];
   $('s-tok-p').textContent = '0'; $('s-tok-c').textContent = '0';
-  state.lastResponse = null;
-  $('chain-g').innerHTML = '';
+  state.lastWorld = null; state.lastResponse = null;
+  $('arena-g').innerHTML = '';
+  $('chain-g2').innerHTML = '';
   $('wf-hud').textContent = '';
+  Object.keys(fishEls).forEach(k => delete fishEls[k]);
+  Object.keys(fishWasAlive).forEach(k => delete fishWasAlive[k]);
   $('chat-input').style.display = state.mode === 'chat' ? 'flex' : 'none';
   $('hint').textContent = state.mode === 'chat'
     ? 'Hint: Chinese or English free-form input; every turn shows recommendations and clickable filters that converge to a single final pick. Two turns without new info auto-converge.'
