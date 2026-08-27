@@ -27,7 +27,7 @@
   button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
   button:disabled { opacity: .45; cursor: default; }
   select { outline: none; }
-  .layout { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 0; min-height: calc(100vh - 54px); }
+  .layout { display: grid; grid-template-columns: minmax(0, 1fr) 420px 300px; gap: 0; min-height: calc(100vh - 54px); }
   #chat { padding: 18px 22px 60px; max-width: 860px; }
   .turn { margin-bottom: 26px; }
   .msg { display: flex; gap: 10px; margin-bottom: 10px; }
@@ -115,8 +115,12 @@
   .fstep.finalstep .bar div { background: linear-gradient(90deg, #14532d, var(--green)); }
   .sig-row { margin: 6px 0 2px; }
   /* ---- MiroFish-style adversarial arena ---- */
-  #arena { display: none; background: #0b0d13; border: 1px solid var(--line); border-radius: 12px;
-           padding: 10px; margin: 12px 0; }
+  #arena-col { border-left: 1px solid var(--line); background: var(--panel); padding: 12px;
+                overflow-y: auto; position: sticky; top: 54px; height: calc(100vh - 54px); }
+  #arena-col .col-title { font-size: 12px; text-transform: uppercase; letter-spacing: .06em;
+                          color: var(--muted); margin: 0 0 10px; }
+  #arena { background: #0b0d13; border: 1px solid var(--line); border-radius: 12px;
+           padding: 10px; margin: 0 0 14px; }
   .wf-steps { display: flex; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
   .wf-step { font-size: 11px; color: var(--muted); background: var(--panel2);
              border: 1px solid var(--line); border-radius: 8px; padding: 4px 10px; }
@@ -185,7 +189,7 @@
                         background: linear-gradient(135deg, #f97316, #ef4444); color: #fff;
                         border: none; border-radius: 10px; cursor: pointer; font-size: 13px; }
   .final-card .pd-buy:hover { filter: brightness(1.1); }
-  #arena-canvas { height: 48vh; }
+  #arena-canvas { height: 42vh; }
   #chainpanel-svg { height: 30vh; }
 </style>
 </head>
@@ -205,7 +209,6 @@
     </select>
     <button id="btn-new" class="primary">New session</button>
     <button id="btn-step">Next turn</button>
-    <button id="btn-arena">🌊 Arena</button>
   </div>
 </header>
 <div class="layout">
@@ -213,6 +216,15 @@
     <div class="shop-strip">🛒 Shopping assistant · <b id="shop-count">—</b> candidates in the arena</div>
     <div class="empty" id="empty">Click "New session" to start</div>
     <div id="banner"></div>
+    <div id="turns"></div>
+    <div id="chat-input" style="display:none">
+      <input id="user-input" placeholder="e.g. black leather belt under $30">
+      <button id="btn-send" class="primary">Send</button>
+    </div>
+    <div class="hint" id="hint"></div>
+  </div>
+  <div id="arena-col">
+    <div class="col-title">🌊 MiroFish · Adversarial Arena</div>
     <div id="arena">
       <div class="wf-steps">
         <div class="wf-step" id="wf1"><span class="wf-num">01</span>Seed message</div>
@@ -226,12 +238,6 @@
       <div class="chainpanel-head">🧠 Reasoning chain of the champion</div>
       <div id="chainpanel"><svg id="chainpanel-svg" viewBox="0 0 900 200"><g id="chain-g2"></g></svg></div>
     </div>
-    <div id="turns"></div>
-    <div id="chat-input" style="display:none">
-      <input id="user-input" placeholder="e.g. black leather belt under $30">
-      <button id="btn-send" class="primary">Send</button>
-    </div>
-    <div class="hint" id="hint"></div>
   </div>
   <div id="side">
     <h3>Session state</h3>
@@ -297,7 +303,7 @@ const api = async (path, body) => {
   return res.json();
 };
 const state = { sid: null, mode: 'chat', next: null, done: false, turn: 0,
-                tokP: 0, tokC: 0, lastUserMessage: '', traces: [], arenaView: false };
+                tokP: 0, tokC: 0, lastUserMessage: '', traces: [] };
 const LLM_STORE = 'techjam_llm';
 
 // ---------------- MiroFish-style adversarial arena ----------------
@@ -409,16 +415,11 @@ function renderChainPanel() {
   });
   $('chain-g2').innerHTML = g;
 }
-function toggleArena() {
-  state.arenaView = !state.arenaView;
-  $('arena').style.display = state.arenaView ? 'block' : 'none';
-  $('btn-arena').classList.toggle('primary', state.arenaView);
-  if (state.arenaView) {
-    if (state.lastWorld) renderArena(state.lastWorld, state.lastResponse || {});
-    else renderChainPanel();
-  }
+// arena is a dedicated always-visible column
+function refreshArena() {
+  if (state.lastWorld) renderArena(state.lastWorld, state.lastResponse || {});
+  else renderChainPanel();
 }
-$('btn-arena').onclick = toggleArena;
 $('arena-canvas').addEventListener('wheel', e => {
   e.preventDefault();
   arenaPan.s = Math.min(3, Math.max(0.35, arenaPan.s * (e.deltaY < 0 ? 1.12 : 0.89)));
@@ -650,11 +651,11 @@ function renderTurn(r) {
   if (r.trace) {
     state.traces.push(r.trace);
     state.lastResponse = r;
-    if (state.arenaView) renderArena(r.world, r);
   }
   if (r.world) {
     state.lastWorld = r.world;
     state.lastResponse = r;
+    renderArena(r.world, r);
   }
   if (r.usage) {
     state.tokP += r.usage.prompt_tokens || 0;
