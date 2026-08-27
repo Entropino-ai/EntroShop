@@ -255,17 +255,21 @@ def build_world(world_state: dict, alive_ordered: list[str], final_asin: str | N
     if len(world_state) > 600:
         for asin in [a for a, info in world_state.items() if not info["alive"]][:len(world_state) - 600]:
             del world_state[asin]
-    entities = [
-        {
+    entities = []
+    for asin, info in world_state.items():
+        product = AGENT.index.products.get(asin, {})
+        entities.append({
             "asin": asin,
             "x": round(info["x"], 4),
             "y": round(info["y"], 4),
             "alive": bool(info["alive"]),
             "final": asin == final_asin,
-            "title": str(AGENT.index.products.get(asin, {}).get("title") or "")[:44],
-        }
-        for asin, info in world_state.items()
-    ]
+            "title": str(product.get("title") or "")[:44],
+            "price": product.get("price"),
+            "rating": product.get("average_rating"),
+            "rating_number": product.get("rating_number"),
+            "store": str(product.get("store") or ""),
+        })
     return {"entities": entities, "alive_count": len(alive), "converged": converged}
 
 
