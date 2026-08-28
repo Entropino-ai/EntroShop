@@ -8,7 +8,7 @@
 
 **【TiktokTechJam2026】** · TikTok TechJam 2026 Track 4 — Shopping Copilot: AI Conversational Search & Recommendations
 
-**Authors:** EntroShop Team (solo entry) — GitHub [SakuraEntropia/EntroShop](https://github.com/SakuraEntropia/EntroShop)
+**Authors:** EntroShop Team (solo entry) — GitHub [Entropino-ai/EntroShop](https://github.com/Entropino-ai/EntroShop)
 
 **Keywords:** conversational recommender systems · hybrid retrieval · clarification policy · information elicitation · swarm-intelligence UI · Model Context Protocol
 
@@ -91,7 +91,7 @@ EntroShop shows that a conversational shopping agent can be both *convergent* an
             with Bounded-Turn Convergence},
   author = {{EntroShop Team}},
   year   = {2026},
-  note   = {TikTok TechJam 2026 Track 4 submission. https://github.com/SakuraEntropia/EntroShop}
+  note   = {TikTok TechJam 2026 Track 4 submission. https://github.com/Entropino-ai/EntroShop}
 }
 ```
 
