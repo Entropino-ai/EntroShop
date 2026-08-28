@@ -41,16 +41,30 @@ from agent_lib.llm_rank import LLMReranker  # noqa: E402
 from agent_lib.mcp import MCPContext, handle as mcp_handle  # noqa: E402
 from agent_lib.query import freeform_query  # noqa: E402
 from agent_lib.retrieve import freeform_retrieve_with_pool  # noqa: E402
-from evaluator.local_evaluator import (  # noqa: E402
-    MAX_TURNS,
-    TOP_K,
-    catalog_index,
-    coarse_category,
-    customer_reply,
-    initial_message,
-    load_jsonl,
-    materialize_hidden_fields,
-)
+
+try:
+    from evaluator.local_evaluator import (  # noqa: E402
+        MAX_TURNS,
+        TOP_K,
+        coarse_category,
+        customer_reply,
+        initial_message,
+        load_jsonl,
+        materialize_hidden_fields,
+    )
+    SIMULATOR_AVAILABLE = True
+except Exception:
+    # standalone chat mode: the organizer kit (which provides the evaluator
+    # and the example simulator) is optional; example presets are disabled
+    SIMULATOR_AVAILABLE = False
+    MAX_TURNS = 10
+    TOP_K = 10
+
+    def load_jsonl(path):  # type: ignore[misc]
+        import json as _json
+        from pathlib import Path as _Path
+
+        return [_json.loads(line) for line in _Path(path).open(encoding="utf-8") if line.strip()]
 from starter.agent import Agent  # noqa: E402
 
 CATALOG = ROOT / "data" / "catalog.jsonl"
@@ -530,6 +544,15 @@ class Handler(BaseHTTPRequestHandler):
                 self._json({"session_id": session.sid, "mode": "chat", "first_user_message": None,
                             "target": None, "scenario_type": None})
                 return
+            if not SIMULATOR_AVAILABLE:
+                self._json({"error": "example mode needs the organizer kit (clone TechJam2026/"
+                            "techjam-conversational-search and add it to PYTHONPATH); "
+                            "chat mode works standalone"}, 400)
+                return
+            if not SAMPLES:
+                self._json({"error": "data/public_set.jsonl missing — fetch it from the "
+                            "participant kit (see README)"}, 400)
+                return
             scenario = body.get("scenario")
             candidates = [s for s in SAMPLES if not scenario or scenario == "random"
                           or s["scenario_type"] == scenario]
@@ -619,10 +642,13 @@ def main() -> None:
         AGENT.llm = LLMReranker.from_local_defaults()
         if AGENT.llm is not None:
             print(f"[server] LLM: local DeepSeek default ({AGENT.llm.model})", flush=True)
-    _, CATEGORIES, PRODUCTS = catalog_index(args.catalog)
-    SAMPLES = load_jsonl(args.dataset)
+    PRODUCTS = AGENT.index.products
+    CATEGORIES = {asin: [str(value) for value in (product.get("categories") or [])]
+                  for asin, product in PRODUCTS.items()}
+    SAMPLES = load_jsonl(args.dataset) if Path(args.dataset).exists() else []
     print(f"ready: {len(PRODUCTS)} products, {len(SAMPLES)} public sessions, "
-          f"dense={type(AGENT.dense).__name__}", flush=True)
+          f"dense={type(AGENT.dense).__name__}, simulator={'on' if SIMULATOR_AVAILABLE else 'off (chat only)'}",
+          flush=True)
 
     server = ThreadingHTTPServer(("127.0.0.1", args.port), Handler)
     print(f"demo UI: http://127.0.0.1:{args.port}", flush=True)

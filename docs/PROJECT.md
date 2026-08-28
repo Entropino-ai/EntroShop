@@ -118,15 +118,20 @@ in-memory, no external vector DB**.
 ## Quick start
 
 ```bash
-# 1. one-time: catalog from the official participant kit (50k products)
+# 1) data from the official participant kit
+mkdir -p data
+curl -L -o catalog.jsonl.gz https://github.com/TechJam2026/techjam-conversational-search/releases/download/participant-kit/catalog.jsonl.gz
 gzip -dk catalog.jsonl.gz && mv catalog.jsonl data/catalog.jsonl
+curl -L -o data/public_set.jsonl https://raw.githubusercontent.com/TechJam2026/techjam-conversational-search/main/data/public_set.jsonl
 
-# 2. official local evaluator (from the organizer kit)
-python3 -m evaluator.local_evaluator      # Hit@10 1.000, TS 0.906
+# 2) official local evaluation (our agent overlaid onto a kit clone)
+git clone https://github.com/TechJam2026/techjam-conversational-search.git ../techjam-kit
+cp -r starter agent_lib ../techjam-kit/
+cd ../techjam-kit && python3 -m evaluator.local_evaluator   # Hit@10 1.000, TS 0.906
 
-# 3. interactive demo UI (optional MiniLM dense route)
-pip install --target vendor transformers
-PYTHONPATH=vendor python3 demo/server.py   # http://127.0.0.1:8090
+# 3) demo UI — chat standalone; Example presets need the kit on PYTHONPATH
+pip install --target vendor transformers    # optional MiniLM
+PYTHONPATH=vendor python3 demo/server.py    # http://127.0.0.1:8090
 ```
 
 Optional LLM rerank (any OpenAI-compatible endpoint, e.g. DeepSeek):
