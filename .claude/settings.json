@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": ["Read", "Glob", "Grep", "Bash", "Edit", "Write", "WebFetch", "WebSearch", "Task"],
+    "deny": ["Bash(git push origin main)"]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .claude/hooks/block-protected.mjs"
+          }
+        ]
+      }
+    ]
+  }
+}

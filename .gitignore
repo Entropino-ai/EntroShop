@@ -12,6 +12,9 @@ data/
 data/*.jsonl
 data/*.jsonl.gz
 
+# Official TechJam evaluator (from the organizer kit, not project source)
+evaluator/
+
 # Heavy optional assets
 vendor/
 data/models/
