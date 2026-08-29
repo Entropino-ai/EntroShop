@@ -355,7 +355,20 @@ def chat_turn(session: ChatSession, body: dict) -> dict:
         message = "What are you looking for? Pick a category or type it (Chinese or English):"
         chips = [{"type": "category", "label": label, "message": message_text}
                  for label, message_text in STARTER_CATEGORIES]
-        if session.turn >= 9:
+        if session.guide.no_progress >= 2:
+            # user kept ignoring the starter chips: converge to the most
+            # popular item instead of looping forever
+            from agent_lib.query import FreeformQuery
+
+            ranked, _, union_size = freeform_retrieve_with_pool(
+                FreeformQuery(), AGENT.index, AGENT.dense, 20, pool_limit=200)
+            world_alive = list(ranked)
+            pool_size = union_size
+            converged = True
+            message = ("No new information for 2 turns — settling on the most "
+                       "popular item as the single final recommendation.")
+            chips = []
+        elif session.turn >= 9:
             # 10-turn clamp: no information arrived — settle on the most
             # popular item so the session still ends with one answer
             from agent_lib.query import FreeformQuery

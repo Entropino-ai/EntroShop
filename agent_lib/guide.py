@@ -132,7 +132,7 @@ class GuideState:
     def should_converge(self, pool_size: int, turn: int = 0) -> bool:
         # natural convergence + a hard clamp: force the final answer by
         # turn 9 so every session finishes within the 10-turn budget
-        return (self.converged or pool_size <= 5 or self.no_progress >= 2
+        return (self.converged or pool_size <= 10 or self.no_progress >= 2
                 or self.guide_rounds >= 4 or turn >= 9)
 
 
