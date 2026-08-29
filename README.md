@@ -18,7 +18,7 @@
 | **Efficiency** | 0.119 | **0.934** |
 | **TechnicalScore** | 0.107 | **0.906** |
 
-*All 200 public sessions hit the hidden target. Fully offline deterministic core — 0 tokens, in-memory, no external vector DB.*
+*All 200 public sessions hit the hidden target. Recommended mode: online (LLM rerank) for the best convergence efficiency. A fully offline deterministic fallback (0 tokens, in-memory, no external vector DB) still hits every session, with lower efficiency.*
 
 ---
 
@@ -64,7 +64,8 @@ curl -L -o data/public_set.jsonl https://raw.githubusercontent.com/TechJam2026/t
 git clone https://github.com/TechJam2026/techjam-conversational-search.git ../techjam-kit
 cp -r starter agent_lib ../techjam-kit/
 cd ../techjam-kit && python3 -m evaluator.local_evaluator
-# expect Hit@10 1.000, MRR 0.724, MTTC 1.59, TechnicalScore 0.906
+# (offline fallback) expect Hit@10 1.000, MRR 0.724, MTTC 1.59, TechnicalScore 0.906
+# set TECHJAM_LLM_* to enable the recommended online rerank (better efficiency)
 
 # 3) interactive demo UI — chat works standalone with just the catalog
 pip install --target vendor transformers    # optional MiniLM dense route
@@ -75,7 +76,7 @@ PYTHONPATH=vendor python3 demo/server.py     # open http://127.0.0.1:8090
 *The repo deliberately ships no organizer files (evaluator, data) — they come
 from the participant kit above.*
 
-Optional LLM rerank (DeepSeek or any OpenAI-compatible endpoint):
+LLM rerank (recommended online mode; DeepSeek or any OpenAI-compatible endpoint):
 
 ```bash
 export TECHJAM_LLM_API_BASE="https://api.deepseek.com/v1"
@@ -85,12 +86,13 @@ export TECHJAM_LLM_MODEL="deepseek-v4-flash"
 
 ## Network & Fallback Policy
 
-- **Default is fully offline**: the deterministic core uses 0 tokens, makes no
-  network calls, and needs no API keys.
+- **Recommended: online.** Set `TECHJAM_LLM_*` to enable the LLM rerank: the
+  recommended configuration for the best convergence efficiency.
+- **Offline fallback:** without a key or network, the deterministic core still
+  runs and hits every session, but converges slower (lower Efficiency).
 - The organizer may **disable network access for final scoring**. The agent
-  runs unchanged in that environment: without a key (or without network) the
-  optional LLM rerank simply does not trigger and the deterministic ranking is
-  used.
+  then runs the offline fallback automatically; expect degraded efficiency in
+  that environment.
 - LLM keys are read from environment variables only (`TECHJAM_LLM_*`,
   `DEEPSEEK_API_KEY`) and never committed. Any rerank failure, timeout, or
   malformed response falls back silently to the heuristic ranking.
@@ -101,13 +103,14 @@ export TECHJAM_LLM_MODEL="deepseek-v4-flash"
 
 | Component | Model / resource | Tokens | Measured latency | Approx. cost |
 |---|---|---|---|---|
-| Core ranking (default) | deterministic hybrid retrieval | **0** | ~0.4 s / session (200 sessions ≈ 70 s incl. index) | **$0** |
+| Core ranking (offline fallback) | deterministic hybrid retrieval | **0** | ~0.4 s / session (200 sessions ≈ 70 s incl. index) | **$0** |
 | Dense route (optional) | MiniLM `all-MiniLM-L6-v2` (22M params, local CPU) | 0 | one-time embedding build ≈ 5 min (cached); query ≈ 60–100 ms | $0 (local) |
-| LLM rerank (optional, only with a key) | OpenAI-compatible, measured with `deepseek-v4-flash` | ~2–3k prompt + ~1.5k completion per top-15 rerank | 13–21 s per call | ≈ $0.002–0.003 / call at public list prices |
+| LLM rerank (recommended online mode) | OpenAI-compatible, measured with `deepseek-v4-flash` | ~2–3k prompt + ~1.5k completion per top-15 rerank | 13–21 s per call | ≈ $0.002–0.003 / call at public list prices |
 
-The LLM path is invoked only when `TECHJAM_LLM_API_KEY` (or a local DeepSeek
-default) is configured, and only for pools of 11–60 candidates; everything
-else runs offline at zero cost.
+The LLM path is the recommended configuration: set `TECHJAM_LLM_API_KEY`
+(or a local DeepSeek default) to enable it; it reranks pools of 11–60
+candidates. Without a key, everything runs on the offline deterministic
+ranking at zero cost.
 
 ## Repository layout
 
