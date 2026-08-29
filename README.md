@@ -4,7 +4,11 @@
 
 **TikTok TechJam 2026 · Track 4 — Shopping Copilot: AI Conversational Search & Recommendations**
 
-> 📖 Full project documentation (mini-paper + manual): [`docs/PROJECT.md`](docs/PROJECT.md)
+> 📖 Full documentation — chapter-per-file, open-source style:
+> [`docs/`](docs/README.md) (getting started · architecture · modules ·
+> policy optimization · benchmarks · testing · FAQ · contributing ·
+> license). Mini-paper & strategy write-up:
+> [`docs/PROJECT.md`](docs/PROJECT.md), [`SOLUTION.md`](SOLUTION.md).
 
 | | Weak BM25 baseline | EntroShop |
 |---|---|---|
@@ -113,8 +117,15 @@ agent_lib/              catalog index, message understanding, state machine,
                         multi-route retrieval, dense routes, MCP core, guidance
 demo/                   interactive UI server + MCP stdio entry
 analysis/               development probes, offline tuners, policy grids
+docs/                   chapter-per-file documentation (see docs/README.md)
 SOLUTION.md             full architecture and strategy write-up
 ```
+
+## License
+
+[MIT](LICENSE) © 2026 EntroShop Team (Entropino-ai). Competition data
+(catalog, evaluator, public set) stays with the organizers' participant kit —
+see [docs/09-license.md](docs/09-license.md).
 
 ## Limitations
 

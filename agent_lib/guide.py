@@ -176,7 +176,7 @@ def facet_stats(index, pool: list[str]) -> dict:
     }
 
 
-def choose_facet(index, pool: list[str], state: GuideState):
+def choose_facet(index, pool: list[str], state: GuideState, rule: str = "entropy"):
     """Pick the most informative unconstrained facet; returns
     (facet_key, [(value, count, label), ...]) or (None, []) when nothing
     useful remains."""
@@ -203,6 +203,8 @@ def choose_facet(index, pool: list[str], state: GuideState):
             candidates.append(("category", values))
     if not candidates:
         return None, []
+    if rule == "first":
+        return candidates[0][0], candidates[0][1]
 
     best_facet, best_values = None, []
     best_entropy = -1.0

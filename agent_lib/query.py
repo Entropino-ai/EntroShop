@@ -36,6 +36,7 @@ STOPWORDS = {
     "alright", "right", "good", "know", "don", "dont", "guess", "think",
     "anything", "something", "maybe", "nothing", "want", "would",
     "what", "where", "when", "which", "why", "how", "any", "all", "somewhere",
+    "preference", "preferences", "requirement", "requirements", "key",
 }
 
 # Chinese keyword -> English tokens (longest patterns match first).

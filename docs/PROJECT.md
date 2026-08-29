@@ -105,6 +105,14 @@ EntroShop shows that a conversational shopping agent can be both *convergent* an
 
 > **The generative shopping engine: seed a need, watch the candidate swarm converge, and get the one product you actually want.**
 
+> 📚 The documentation is organized chapter-per-file, open-source style —
+> see [`docs/README.md`](README.md):
+> 01 [getting started](01-getting-started.md) · 02 [architecture](02-architecture.md) ·
+> 03 [modules](03-modules.md) · 04 [policy optimization](04-policy-optimization.md) ·
+> 05 [benchmarks](05-benchmarks.md) · 06 [testing](06-testing.md) ·
+> 07 [FAQ](07-faq.md) · 08 [contributing](08-contributing.md) ·
+> 09 [license & credits](09-license.md).
+
 ## What is EntroShop?
 
 EntroShop is a conversational shopping agent that treats product search as an
