@@ -45,6 +45,10 @@ The demo renders step 3 as a **MiroFish-style god-view world**: candidate produc
 
 ## Quick start
 
+**Requirements:** Python ≥3.10 (tested on 3.14); `numpy` + `scikit-learn` are
+optional (only the dense route needs them — the deterministic core is
+stdlib-only).
+
 ```bash
 # 1) data from the official participant kit (50k products + 200 public sessions)
 mkdir -p data
@@ -74,6 +78,32 @@ export TECHJAM_LLM_API_BASE="https://api.deepseek.com/v1"
 export TECHJAM_LLM_API_KEY="..."            # never commit keys
 export TECHJAM_LLM_MODEL="deepseek-v4-flash"
 ```
+
+## Network & Fallback Policy
+
+- **Default is fully offline**: the deterministic core uses 0 tokens, makes no
+  network calls, and needs no API keys.
+- The organizer may **disable network access for final scoring**. The agent
+  runs unchanged in that environment: without a key (or without network) the
+  optional LLM rerank simply does not trigger and the deterministic ranking is
+  used.
+- LLM keys are read from environment variables only (`TECHJAM_LLM_*`,
+  `DEEPSEEK_API_KEY`) and never committed. Any rerank failure, timeout, or
+  malformed response falls back silently to the heuristic ranking.
+- The catalog must exist locally (downloaded once from the participant kit);
+  the demo UI and MiniLM embeddings are local too.
+
+## Model & Cost Disclosure
+
+| Component | Model / resource | Tokens | Measured latency | Approx. cost |
+|---|---|---|---|---|
+| Core ranking (default) | deterministic hybrid retrieval | **0** | ~0.4 s / session (200 sessions ≈ 70 s incl. index) | **$0** |
+| Dense route (optional) | MiniLM `all-MiniLM-L6-v2` (22M params, local CPU) | 0 | one-time embedding build ≈ 5 min (cached); query ≈ 60–100 ms | $0 (local) |
+| LLM rerank (optional, only with a key) | OpenAI-compatible, measured with `deepseek-v4-flash` | ~2–3k prompt + ~1.5k completion per top-15 rerank | 13–21 s per call | ≈ $0.002–0.003 / call at public list prices |
+
+The LLM path is invoked only when `TECHJAM_LLM_API_KEY` (or a local DeepSeek
+default) is configured, and only for pools of 11–60 candidates; everything
+else runs offline at zero cost.
 
 ## Repository layout
 
