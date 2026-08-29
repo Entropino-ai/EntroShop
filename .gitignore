@@ -5,6 +5,7 @@
 __pycache__/
 *.py[cod]
 .env
+.venv/
 
 # Data artifacts (downloadable from the official kit)
 data/
