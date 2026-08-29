@@ -18,7 +18,7 @@ import re
 import urllib.request
 from pathlib import Path
 
-TIMEOUT_SECONDS = 60.0
+TIMEOUT_SECONDS = 25.0
 
 
 class LLMReranker:
@@ -55,6 +55,24 @@ class LLMReranker:
         return cls("https://api.deepseek.com/v1", api_key,
                    os.environ.get("DEEPSEEK_MODEL", "deepseek-v4-flash"))
 
+    def ping(self) -> bool:
+        """Cheap liveness probe: is the configured model actually reachable?"""
+        body = {"model": self.model,
+                "messages": [{"role": "user", "content": "ping"}],
+                "max_tokens": 1}
+        request = urllib.request.Request(
+            f"{self.api_base}/chat/completions",
+            data=json.dumps(body).encode("utf-8"),
+            headers={"Content-Type": "application/json",
+                     "Authorization": f"Bearer {self.api_key}"},
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(request, timeout=8) as response:
+                return response.status == 200
+        except Exception:
+            return False
+
     def rerank(self, conversation: str, candidates: list[dict]) -> tuple[list[str] | None, dict]:
         """Return (ordered asins, usage) or (None, usage) on failure."""
         catalog_block = "\n".join(
@@ -79,7 +97,7 @@ class LLMReranker:
                 {"role": "user", "content": prompt},
             ],
             "temperature": 0.0,
-            "max_tokens": 1500,
+            "max_tokens": 900,
         }
         request = urllib.request.Request(
             f"{self.api_base}/chat/completions",

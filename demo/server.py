@@ -393,9 +393,15 @@ def chat_turn(session: ChatSession, body: dict) -> dict:
                 })
             try:
                 ordered, usage = AGENT.llm.rerank("\n".join(session.messages), candidates)
+                setattr(AGENT, "_llm_fails", 0)
             except Exception as exc:
-                print(f"[server] chat LLM rerank failed: {exc}", flush=True)
+                fails = getattr(AGENT, "_llm_fails", 0) + 1
+                setattr(AGENT, "_llm_fails", fails)
+                print(f"[server] chat LLM rerank failed ({fails}x): {exc}", flush=True)
                 ordered, usage = None, {"prompt_tokens": 0, "completion_tokens": 0}
+                if fails >= 2:
+                    print("[server] LLM failing repeatedly — disabling (offline fallback)", flush=True)
+                    AGENT.llm = None
             if ordered:
                 ranked = ordered + [asin for asin in ranked if asin not in ordered]
         ranked = ranked[:TOP_K]
@@ -525,6 +531,7 @@ class Handler(BaseHTTPRequestHandler):
         elif self.path == "/api/health":
             self._json({"ok": True, "products": len(PRODUCTS), "samples": len(SAMPLES),
                         "llm": AGENT.llm is not None,
+                        "llm_ok": AGENT.llm is not None,
                         "llm_model": AGENT.llm.model if AGENT.llm else None,
                         "dense": type(AGENT.dense).__name__})
         else:
@@ -581,6 +588,10 @@ class Handler(BaseHTTPRequestHandler):
                 if AGENT.llm is None:
                     self._json({"ok": False, "configured": False,
                                 "error": "no local DeepSeek credentials found (~/.dsh/.credentials.yaml or DEEPSEEK_API_KEY)"}, 400)
+                elif not validate_llm(AGENT.llm):
+                    AGENT.llm = None
+                    self._json({"ok": False, "configured": False,
+                                "error": "model unreachable — server stays offline"}, 400)
                 else:
                     self._json({"ok": True, "configured": True, "model": AGENT.llm.model,
                                 "source": "local"})
@@ -591,7 +602,13 @@ class Handler(BaseHTTPRequestHandler):
             if not api_base or not api_key:
                 self._json({"ok": False, "configured": False, "error": "api_base and api_key must not be empty"}, 400)
                 return
-            AGENT.llm = LLMReranker(api_base, api_key, model)
+            candidate = LLMReranker(api_base, api_key, model)
+            if not validate_llm(candidate):
+                AGENT.llm = None
+                self._json({"ok": False, "configured": False,
+                            "error": "model unreachable — server stays offline"}, 400)
+                return
+            AGENT.llm = candidate
             self._json({"ok": True, "configured": True, "model": model})
         elif self.path == "/mcp":
             # JSON-RPC 2.0 endpoint (same handler as the stdio server)
@@ -610,6 +627,21 @@ class Handler(BaseHTTPRequestHandler):
             self._json(result)
         else:
             self._json({"error": "not found"}, 404)
+
+
+def validate_llm(llm) -> bool:
+    """Probe the configured model; if unreachable, the server stays offline
+    instead of stalling every chat turn."""
+    if llm is None:
+        return False
+    ok = False
+    try:
+        ok = llm.ping()
+    except Exception:
+        ok = False
+    if not ok:
+        print(f"[server] LLM model unreachable ({llm.model}) — falling back to offline mode", flush=True)
+    return ok
 
 
 def build_dense(products: dict):
@@ -642,6 +674,9 @@ def main() -> None:
         AGENT.llm = LLMReranker.from_local_defaults()
         if AGENT.llm is not None:
             print(f"[server] LLM: local DeepSeek default ({AGENT.llm.model})", flush=True)
+    if AGENT.llm is not None and not validate_llm(AGENT.llm):
+        AGENT.llm = None
+    setattr(AGENT, "_llm_fails", 0)
     PRODUCTS = AGENT.index.products
     CATEGORIES = {asin: [str(value) for value in (product.get("categories") or [])]
                   for asin, product in PRODUCTS.items()}

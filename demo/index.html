@@ -143,6 +143,14 @@
   #chainpanel-svg { width: 100%; height: 34vh; display: block; background: #0b0d13; }
   .cnode rect { transition: filter .15s; }
   .cnode:hover rect { filter: brightness(1.4); }
+  /* Claude-style loading indicator */
+  .thinking { display: inline-flex; gap: 5px; align-items: center; padding: 2px 0; }
+  .thinking span { width: 7px; height: 7px; border-radius: 50%; background: var(--accent);
+                   animation: t-blink 1.2s ease-in-out infinite; }
+  .thinking span:nth-child(2) { animation-delay: .18s; }
+  .thinking span:nth-child(3) { animation-delay: .36s; }
+  @keyframes t-blink { 0%, 80%, 100% { opacity: .25; transform: translateY(0); }
+                       40% { opacity: 1; transform: translateY(-3px); } }
   /* shopping accents */
   .card .price { color: var(--green); font-weight: 700; }
   .shop-strip { display: flex; align-items: center; justify-content: space-between;
@@ -305,7 +313,7 @@ const api = async (path, body) => {
                                  body: JSON.stringify(body || {}) });
   return res.json();
 };
-const state = { sid: null, mode: 'chat', next: null, done: false, turn: 0,
+const state = { sid: null, mode: 'chat', next: null, done: false, pending: false, turn: 0,
                 tokP: 0, tokC: 0, lastUserMessage: '', traces: [] };
 const LLM_STORE = 'techjam_llm';
 
@@ -696,15 +704,40 @@ function renderTurn(r) {
     }
   }
 }
+function showThinking() {
+  const div = document.createElement('div');
+  div.className = 'turn'; div.id = 'thinking';
+  div.innerHTML = `<div class="msg agent"><div><div class="who">EntroShop</div>
+    <div class="bubble thinking"><span></span><span></span><span></span></div></div></div>`;
+  $('turns').appendChild(div);
+  window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+}
+function hideThinking() { const el = $('thinking'); if (el) el.remove(); }
 async function sendChat(text) {
-  if (!state.sid || state.done) return;
+  if (!state.sid || state.done || state.pending) return;
   // send-trigger for everything: chat mode sends the typed message,
   // example (preset) mode advances the simulator one turn
   const body = state.mode === 'chat'
     ? { session_id: state.sid, user_message: text }
     : { session_id: state.sid };
-  const r = await api('/api/turn', body);
-  renderTurn(r);
+  state.pending = true;
+  $('btn-send').disabled = true;
+  showThinking();
+  try {
+    const r = await api('/api/turn', body);
+    hideThinking();
+    renderTurn(r);
+  } catch (e) {
+    hideThinking();
+    const div = document.createElement('div');
+    div.className = 'turn';
+    div.innerHTML = `<div class="msg agent"><div><div class="who">EntroShop</div>
+      <div class="bubble" style="color:var(--red)">⚠️ request failed: ${esc(String(e))}</div></div></div>`;
+    $('turns').appendChild(div);
+  } finally {
+    state.pending = false;
+    $('btn-send').disabled = false;
+  }
 }
 $('turns').addEventListener('click', e => {
   const chip = e.target.closest('[data-guide-msg]');
