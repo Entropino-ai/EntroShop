@@ -2,11 +2,11 @@
 
 **Track:** TikTok TechJam 2026, Track 4: Shopping Copilot (AI Conversational Search and Recommendations)
 
-**One-liner:** A shopping copilot that finds the customer's hidden target product in 1.6 turns on average, fully offline, with zero API tokens.
+**One-liner:** A shopping copilot that finds the customer's hidden target product in 1.6 turns on average: an LLM-reranked online mode for the best efficiency, with a zero-token offline fallback.
 
 ## What it does
 
-EntroShop talks to a customer across multiple turns to find the one hidden product they have in mind, out of a 50,000-product catalog. It recommends products on every turn instead of only asking questions, so a session ends the moment the target shows up. On the official public development set (200 sessions) it scores Hit Rate@10 = 1.000, MRR = 0.724, and MTTC = 1.59 turns, raising the TechnicalScore from the BM25 baseline's 0.107 to 0.905.
+EntroShop talks to a customer across multiple turns to find the one hidden product they have in mind, out of a 50,000-product catalog. It recommends products on every turn instead of only asking questions, so a session ends the moment the target shows up. On the official public development set (200 sessions) it scores Hit Rate@10 = 1.000, MRR = 0.724, and MTTC = 1.59 turns, raising the TechnicalScore from the BM25 baseline's 0.107 to 0.906.
 
 ## The insight
 
@@ -15,7 +15,7 @@ The official evaluator is a deterministic simulator. The customer's constraints 
 1. **Exact-phrase conjunction first.** Joining verbatim constraint phrases narrows the pool to a single product for 66.5% of sessions, and to ten or fewer for 79%. Lexical overlap is the signal the simulator is aligned with, so we do not spend compute on semantic search where it adds nothing.
 2. **Ask "other", not one attribute at a time.** Some attributes get a "no preference" answer, but an "other" question returns the two most useful undisclosed constraints. A grid search over question policies confirmed that asking "other" to the end beats probing attribute by attribute.
 3. **Model scenario evolution, not just slots.** Buying, Browsing, Intent Override, and Boundary sessions each get their own route. An intent override erases only the opening preference and keeps everything learned by asking; a boundary reply costs one extra question and nothing else.
-4. **The core is deterministic and offline.** Standard library only, zero API calls, zero tokens. An optional LLM reranker can reorder the top-20 when credentials are provided, and falls back to the deterministic ranking on any failure or when the network is off.
+4. **Recommended online, safe offline.** The recommended configuration reranks the top-20 with a cheap OpenAI-compatible LLM for the best convergence efficiency. Without a key, or when the network is off, the deterministic standard-library core still runs and hits every session, only converging slower; any rerank failure falls back silently.
 
 ## Architecture
 
@@ -41,7 +41,7 @@ The same agent is exposed as an MCP server (tools: `search_products`, `product_d
 | MRR | 0.068 | 0.724 |
 | MTTC (turns) | 9.81 | 1.59 |
 | Efficiency | 0.119 | 0.934 |
-| TechnicalScore | 0.107 | 0.905 |
+| TechnicalScore | 0.107 | 0.906 |
 
 ## Known limitations
 
