@@ -29,6 +29,7 @@ STOPWORDS = {
     "the", "this", "to", "want", "with", "would", "you", "looking", "need",
     "under", "below", "less", "than", "about", "around", "dollar", "dollars",
     "like", "just", "get", "got", "do", "can", "could", "buy",
+    "budget", "price", "prices",
     # filler / no-information words (must not count as new constraints)
     "hmm", "hm", "ok", "okay", "fine", "sure", "well", "yes", "yeah", "yep",
     "no", "nope", "thanks", "thank", "please", "um", "uh", "whatever",

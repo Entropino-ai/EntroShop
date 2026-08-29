@@ -97,6 +97,9 @@
            border-radius: 99px; padding: 4px 12px; font-size: 12px; cursor: pointer; }
   .gchip:hover { border-color: var(--accent); color: #fff; }
   .gchip.converge { border-color: var(--green); color: var(--green); }
+  .gchip:disabled { opacity: .45; cursor: default; }
+  .gchip.selected { background: #173a2c; border-color: var(--green); color: #fff; }
+  .gchip.stale { opacity: .35; }
   .pool-badge { display: inline-block; margin-left: 8px; font-size: 11px; color: var(--muted);
                 background: var(--chip); border-radius: 99px; padding: 1px 8px; }
   .pool-badge.converged { color: var(--green); border: 1px solid var(--green); }
@@ -589,6 +592,11 @@ function renderProfile(p) {
 }
 function renderTurn(r) {
   $('empty').style.display = 'none';
+  // deactivate guide chips from prior turns: only the latest are clickable
+  $('turns').querySelectorAll('[data-guide-msg]').forEach(b => {
+    b.disabled = true;
+    if (!b.classList.contains('selected')) b.classList.add('stale');
+  });
   const div = document.createElement('div');
   div.className = 'turn';
   const poolBadge = r.guide
@@ -708,7 +716,10 @@ async function sendChat(text) {
 }
 $('turns').addEventListener('click', e => {
   const chip = e.target.closest('[data-guide-msg]');
-  if (chip) sendChat(chip.getAttribute('data-guide-msg'));
+  if (!chip || chip.disabled) return;
+  chip.disabled = true;
+  chip.classList.add('selected');
+  sendChat(chip.getAttribute('data-guide-msg'));
 });
 async function newSession() {
   $('turns').innerHTML = '';
