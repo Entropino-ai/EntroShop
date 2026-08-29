@@ -1,0 +1,33 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Demo server (:8090)",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "demo.server",
+      "args": ["--port", "8090"],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "justMyCode": true
+    },
+    {
+      "name": "Official evaluator",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "evaluator.local_evaluator",
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "justMyCode": true
+    },
+    {
+      "name": "Stress test (synthetic)",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/analysis/synthetic_stress.py",
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "justMyCode": true
+    }
+  ]
+}

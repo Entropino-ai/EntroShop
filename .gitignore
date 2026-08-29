@@ -5,11 +5,15 @@
 __pycache__/
 *.py[cod]
 .env
+.venv/
 
 # Data artifacts (downloadable from the official kit)
 data/
 data/*.jsonl
 data/*.jsonl.gz
+
+# Official TechJam evaluator (from the organizer kit, not project source)
+evaluator/
 
 # Heavy optional assets
 vendor/

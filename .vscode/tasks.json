@@ -1,0 +1,35 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "evaluator: official score (EntroShop)",
+      "type": "shell",
+      "command": "${workspaceFolder}/.venv/bin/python -m evaluator.local_evaluator",
+      "options": { "cwd": "${workspaceFolder}" },
+      "group": { "kind": "test", "isDefault": true },
+      "problemMatcher": []
+    },
+    {
+      "label": "evaluator: reproduce BM25 baseline",
+      "type": "shell",
+      "command": "cd data/kit/techjam-conversational-search && ${workspaceFolder}/.venv/bin/python -m evaluator.local_evaluator",
+      "options": { "cwd": "${workspaceFolder}" },
+      "problemMatcher": []
+    },
+    {
+      "label": "demo: start server :8090",
+      "type": "shell",
+      "command": "${workspaceFolder}/.venv/bin/python demo/server.py --port 8090",
+      "options": { "cwd": "${workspaceFolder}" },
+      "isBackground": true,
+      "problemMatcher": []
+    },
+    {
+      "label": "demo: synthetic stress test",
+      "type": "shell",
+      "command": "${workspaceFolder}/.venv/bin/python analysis/synthetic_stress.py",
+      "options": { "cwd": "${workspaceFolder}" },
+      "problemMatcher": []
+    }
+  ]
+}
