@@ -138,4 +138,7 @@ see [docs/09-license.md](docs/09-license.md).
 
 ## Team
 
-Built solo during the TikTok TechJam 2026 window, on top of the organizer-provided starter kit. Data: Amazon Reviews 2023 `Clothing_Shoes_and_Jewelry` (see `SOLUTION.md` for attribution).
+Team of five ([Entropino-ai](https://github.com/Entropino-ai) org). Full
+contribution record: [`docs/TEAM_CONTRIBUTIONS.md`](docs/TEAM_CONTRIBUTIONS.md).
+Built on the organizer-provided starter kit. Data: Amazon Reviews 2023
+`Clothing_Shoes_and_Jewelry` (see `SOLUTION.md` for attribution).
