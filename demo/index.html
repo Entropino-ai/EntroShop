@@ -737,13 +737,11 @@ async function newSession() {
     ? 'Type in Chinese or English — every turn shows recommendations and clickable filters that converge to a single final pick.'
     : 'Example replays the official evaluator simulator — press Send / Enter to advance one turn; switch to Free chat to type your own request.';
   renderTarget(r.target); renderProfile(r.profile);
-  if (state.mode === 'demo' && r.first_user_message) {
-    // show the opening customer message without consuming a turn yet
-    const div = document.createElement('div'); div.className = 'turn';
-    div.innerHTML = `<div class="msg customer"><div><div class="who">Customer (opening)</div>
-      <div class="bubble">${esc(r.first_user_message)}</div></div></div>`;
-    $('turns').appendChild(div);
-  }
+  // prefill the input box as the default text (no separate opening block):
+  // examples get the simulator's opening message, chat gets a sample query
+  $('user-input').value = (state.mode === 'demo' && r.first_user_message)
+    ? r.first_user_message
+    : 'black leather belt under $30';
 }
 $('btn-new').onclick = newSession;
 $('mode').onchange = newSession;
@@ -753,6 +751,7 @@ $('btn-send').onclick = () => {
   sendChat(text);
 };
 $('user-input').addEventListener('keydown', e => { if (e.key === 'Enter') $('btn-send').click(); });
+$('user-input').value = 'black leather belt under $30'; // default text on load
 $('btn-mcp-test').onclick = async () => {
   const q = state.lastUserMessage || 'black leather belt under $30';
   const r = await api('/mcp', { jsonrpc: '2.0', id: 1, method: 'tools/call',
