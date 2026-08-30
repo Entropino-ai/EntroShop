@@ -15,7 +15,7 @@ The official evaluator is a deterministic simulator. The customer's constraints 
 1. **Exact-phrase conjunction first.** Joining verbatim constraint phrases narrows the pool to a single product for 66.5% of sessions, and to ten or fewer for 79%. Lexical overlap is the signal the simulator is aligned with, so we do not spend compute on semantic search where it adds nothing.
 2. **Ask "other", not one attribute at a time.** Some attributes get a "no preference" answer, but an "other" question returns the two most useful undisclosed constraints. A grid search over question policies confirmed that asking "other" to the end beats probing attribute by attribute.
 3. **Model scenario evolution, not just slots.** Buying, Browsing, Intent Override, and Boundary sessions each get their own route. An intent override erases only the opening preference and keeps everything learned by asking; a boundary reply costs one extra question and nothing else.
-4. **Recommended online, safe offline.** The recommended configuration reranks the top-20 with a cheap OpenAI-compatible LLM for the best convergence efficiency. Without a key, or when the network is off, the deterministic standard-library core still runs and hits every session, only converging slower; any rerank failure falls back silently.
+4. **Recommended online, safe offline.** The recommended configuration reranks the top-20 with a cheap OpenAI-compatible LLM as the product-mode ranking and a hedge against paraphrase drift. Without a key, or when the network is off, the deterministic standard-library core still runs and hits every session; measured on the public set the two modes are equivalent (TechnicalScore 0.905543 vs 0.905507), and any rerank failure falls back silently.
 
 ## Architecture
 
@@ -41,7 +41,7 @@ The same agent is exposed as an MCP server (tools: `search_products`, `product_d
 | MRR | 0.068 | 0.724 |
 | MTTC (turns) | 9.81 | 1.59 |
 | Efficiency | 0.119 | 0.934 |
-| TechnicalScore | 0.107 | 0.906 |
+| TechnicalScore | 0.107 | 0.906 (0.905543 online / 0.905507 offline) |
 
 ## Known limitations
 

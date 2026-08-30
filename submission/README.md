@@ -38,12 +38,14 @@ cd ../techjam-kit && python3 -m evaluator.local_evaluator
 
 ## Network & Fallback Policy
 
-- **Recommended: online** with the LLM rerank enabled (`TECHJAM_LLM_*`); this
-  gives the best convergence efficiency.
+- **Recommended: online** with the LLM rerank enabled (`TECHJAM_LLM_*`):
+  product-mode ranking and a hedge against paraphrase drift on unseen splits.
 - **Offline fallback:** 0 tokens, no network, no API keys. Still correct
-  (hits every session) but converges slower, so Efficiency drops.
+  (hits every session). Measured on the public set the two modes are
+  equivalent: TechnicalScore 0.905543 online vs 0.905507 offline, same
+  Efficiency (0.9415).
 - Final scoring may disable network access: the agent then runs the offline
-  fallback automatically and should be scored on its degraded efficiency.
+  fallback automatically at the measured equivalent score.
 - Keys are read from environment variables only and never committed;
   any rerank failure/timeout falls back silently to the deterministic ranking.
 
@@ -53,8 +55,9 @@ cd ../techjam-kit && python3 -m evaluator.local_evaluator
 - Optional dense: MiniLM `all-MiniLM-L6-v2` (local CPU, one-time ~5 min build,
   cached).
 - LLM rerank (recommended online mode, pools 11–60): measured with
-  `deepseek-v4-flash` ≈ 2–3k prompt + 1.5k completion tokens, 13–21 s,
-  ≈ $0.002–0.003 per call at public list prices.
+  `deepseek-v4-flash` ≈ 2–3k prompt + 1.5k completion tokens per call, 13–21 s,
+  ≈ $0.002–0.003 per call at public list prices; 244,742 tokens ≈ $0.1–0.2
+  per 200-session run. No measurable public-set score change (TS +0.000036).
 
 ## Interface
 

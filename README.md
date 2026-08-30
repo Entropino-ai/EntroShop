@@ -18,7 +18,7 @@
 | **Efficiency** | 0.119 | **0.934** |
 | **TechnicalScore** | 0.107 | **0.906** |
 
-*All 200 public sessions hit the hidden target. Recommended mode: online (LLM rerank) for the best convergence efficiency. A fully offline deterministic fallback (0 tokens, in-memory, no external vector DB) still hits every session, with lower efficiency.*
+*All 200 public sessions hit the hidden target. Recommended mode: online (LLM rerank) as the product-mode ranking and a hedge against paraphrase drift. Measured on the public set, online and offline are equivalent (TS 0.905543 vs 0.905507); the fully offline deterministic fallback (0 tokens, in-memory, no external vector DB) hits every session at zero cost.*
 
 ---
 
@@ -86,13 +86,15 @@ export TECHJAM_LLM_MODEL="deepseek-v4-flash"
 
 ## Network & Fallback Policy
 
-- **Recommended: online.** Set `TECHJAM_LLM_*` to enable the LLM rerank: the
-  recommended configuration for the best convergence efficiency.
+- **Recommended: online.** Set `TECHJAM_LLM_*` to enable the LLM rerank
+  (product-mode ranking; hedge against paraphrase drift on unseen splits).
 - **Offline fallback:** without a key or network, the deterministic core still
-  runs and hits every session, but converges slower (lower Efficiency).
+  runs and hits every session. Measured on the public set the two modes are
+  equivalent (TechnicalScore 0.905543 online vs 0.905507 offline, same
+  Efficiency); see `docs/05-benchmarks.md`.
 - The organizer may **disable network access for final scoring**. The agent
-  then runs the offline fallback automatically; expect degraded efficiency in
-  that environment.
+  then runs the offline fallback automatically at the measured equivalent
+  score.
 - LLM keys are read from environment variables only (`TECHJAM_LLM_*`,
   `DEEPSEEK_API_KEY`) and never committed. Any rerank failure, timeout, or
   malformed response falls back silently to the heuristic ranking.
@@ -105,7 +107,7 @@ export TECHJAM_LLM_MODEL="deepseek-v4-flash"
 |---|---|---|---|---|
 | Core ranking (offline fallback) | deterministic hybrid retrieval | **0** | ~0.4 s / session (200 sessions ≈ 70 s incl. index) | **$0** |
 | Dense route (optional) | MiniLM `all-MiniLM-L6-v2` (22M params, local CPU) | 0 | one-time embedding build ≈ 5 min (cached); query ≈ 60–100 ms | $0 (local) |
-| LLM rerank (recommended online mode) | OpenAI-compatible, measured with `deepseek-v4-flash` | ~2–3k prompt + ~1.5k completion per top-15 rerank | 13–21 s per call | ≈ $0.002–0.003 / call at public list prices |
+| LLM rerank (recommended online mode; no measurable public-set gain, see benchmarks) | OpenAI-compatible, measured with `deepseek-v4-flash` | ~2–3k prompt + ~1.5k completion per top-15 rerank | 13–21 s per call | ≈ $0.002–0.003 / call at public list prices |
 
 The LLM path is the recommended configuration: set `TECHJAM_LLM_API_KEY`
 (or a local DeepSeek default) to enable it; it reranks pools of 11–60

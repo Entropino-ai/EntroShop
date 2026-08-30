@@ -52,3 +52,23 @@ simulator scenarios hit.
 300 harsh sessions (40% generic-feature products): Hit@10 0.933, MRR 0.649,
 MTTC 2.81, TS 0.825. All 20 misses are family-ambiguous sessions at the
 disclosed-information bound; zero retrieval bugs (`not-in-pool = 0`).
+
+## Online mode (LLM rerank) vs offline fallback
+
+Measured on the official public set (200 sessions), `deepseek-v4-flash`
+reranking pools of 11–60 candidates:
+
+| Metric | Offline (deterministic) | Online (LLM rerank) |
+|---|---|---|
+| Hit Rate@10 | 1.000 | 1.000 |
+| MRR | 0.724024 | 0.724143 |
+| MTTC | 1.585 | 1.585 |
+| Efficiency | 0.9415 | 0.9415 |
+| TechnicalScore | 0.905507 | 0.905543 |
+| Tokens | 0 | 244,742 |
+
+The rerank reorders candidate lists but changes no session outcome on the
+public set (TS +0.000036). It is kept as a hedge against paraphrase drift on
+unseen splits and as the product-mode ranking; it costs ≈245k tokens per
+200-session run (≈$0.1–0.2 at public list prices) and falls back silently to
+the deterministic ranking on any failure.
