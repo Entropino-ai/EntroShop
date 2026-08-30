@@ -10,6 +10,12 @@ class EntroShopNumbers(Scene):
     """Score table appears row by row; the EntroShop column goes green."""
 
     def construct(self):
+        # Explicit light background: the cairo renderer on some macOS setups
+        # paints the default dark frame as pure black, so scenes carry their
+        # own background and use dark foreground elements.
+        bg = Rectangle(width=14.22, height=8.0, fill_color=WHITE,
+                       fill_opacity=1.0, stroke_width=0).set_z_index(-10)
+        self.add(bg)
         rows = [
             ("Metric",      "BM25 baseline",  "EntroShop"),
             ("Hit rate@10", "0.125",          "1.000"),
@@ -28,5 +34,5 @@ class EntroShopNumbers(Scene):
             self.play(FadeIn(cells), run_time=0.35)
         # Highlight the EntroShop column.
         for row in table:
-            row[2].set_color(GREEN)
+            row[2].set_color(GREEN_E)
         self.wait(1.5)

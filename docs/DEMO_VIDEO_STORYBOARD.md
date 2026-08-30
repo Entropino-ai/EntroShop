@@ -7,21 +7,33 @@ convergence, the product tree, the score table) are rendered as Manim
 animations instead of raw screen capture; the code for each scene is at
 the bottom of this file.
 
-Three files are produced:
+Eight scenes are produced (three for the video script, five covering
+the non-demo docs — architecture pipeline, convergence policy, MCP
+layer, score bars, stress battery):
 
 - `docs/manim/convergence.py` — open: 50,000 points collapse to one
 - `docs/manim/tree.py` — product-property tree growth + breadcrumb
 - `docs/manim/numbers.py` — benchmark table build
+- `docs/manim/pipeline.py` — four-stage turn loop (docs/02)
+- `docs/manim/convergence_policy.py` — pool vs turn, 10-turn budget (docs/02)
+- `docs/manim/mcp.py` — core → four tools → hosts (docs/03, README MCP)
+- `docs/manim/scores.py` — BM25 vs EntroShop bars (docs/05)
+- `docs/manim/stress.py` — 300 answerable sessions, 0 misses (STRESS_TEST)
 
-Render with Manim Community Edition:
+Rendered 1080p clips are collected in `docs/manim/media/final/`. Render
+from scratch with Manim Community Edition:
 
 ```bash
-pip install manim
+pip install manim          # plus system deps: pkg-config, cairo, pango, ffmpeg
 manim render -qh docs/manim/convergence.py EntroShopConvergence
 manim render -qh docs/manim/tree.py EntroShopTree
 manim render -qh docs/manim/numbers.py EntroShopNumbers
 # -q h = 1080p; drop -qh to render fast previews
 ```
+
+Note: scenes paint their own WHITE background and use dark foreground
+elements. The default dark manim frame renders as pure black under the
+cairo renderer on some macOS setups, so the scenes do not rely on it.
 
 Timing notes: VO lines are counted at ~150 words/min; the [mm:ss] column
 is the cumulative clock in the final cut, so a Manim clip may need a

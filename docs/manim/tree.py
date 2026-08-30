@@ -14,11 +14,17 @@ class EntroShopTree(Scene):
         mid = Text("Men").next_to(root, DOWN, buff=0.9)
         leaf = Text("Belts").next_to(mid, DOWN, buff=0.9)
 
+        # Explicit light background: the cairo renderer on some macOS setups
+        # paints the default dark frame as pure black, so scenes carry their
+        # own background and use dark foreground elements.
+        bg = Rectangle(width=14.22, height=8.0, fill_color=WHITE,
+                       fill_opacity=1.0, stroke_width=0).set_z_index(-10)
+        self.add(bg)
         self.play(Write(root))
         self.play(Write(mid))
         self.play(Write(leaf))
         edges = VGroup(
-            Line(root.get_bottom(), mid.get_top(), color=GREY_B),
+            Line(root.get_bottom(), mid.get_top(), color=GREY),
             Line(mid.get_bottom(), leaf.get_top(), color=GREY_B),
         )
         self.play(Create(edges))
