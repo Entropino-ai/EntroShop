@@ -24,3 +24,5 @@ results.json
 
 # Manim per-scene renders (source scenes in docs/manim/*.py; final clips in docs/manim/media/final/)
 docs/manim/media/videos/
+docs/manim/media/texts/
+docs/manim/media/Tex/
