@@ -9,8 +9,9 @@ the bottom of this file.
 
 The scenes are **modular**: each phase is its own Scene class and
 renders to its own clip, so the editor can assemble the 3-minute video
-from the exact shots it needs. 19 clips across 8 source files:
+from the exact shots it needs. 23 clips across 9 source files:
 
+- `simulator.py` — Scene 1, 4 phases: Reveal, ExactMatch, Trie, Regex
 - `convergence.py` — 5 phases: Cloud, Target, Rings, Collapse, Score (+ ScoreTable)
 - `tree.py` — 3 phases: Grow, Breadcrumb, Lookup (real multi-level tree)
 - `numbers.py` — 2 phases: Build, Highlight
@@ -44,7 +45,7 @@ speedup or a hold in the editor to land on its beat.
 
 ### Recommended edit order (which clip goes with which line)
 
-The 3-minute cut uses 12 of the 19 clips; the other 7 (pipeline, policy,
+The 3-minute cut uses 16 of the 23 clips; the other 7 (pipeline, policy,
 scores, stress) are extras for a longer version or the docs. Clips are
 referenced by filename in `docs/manim/media/final/`; durations are the
 rendered lengths, so a clip may need a speedup or a hold in the editor.
@@ -56,6 +57,12 @@ rendered lengths, so a clip may need a speedup or a hold in the editor.
 | 3 | "...we get ten turns to do it." | `EntroShopOpen_Rings.mp4` | 5.2s | ten inward rings |
 | 4 | "...asks the right questions and converges." | `EntroShopOpen_Collapse.mp4` | 3.0s | swarm sweeps in |
 | 5 | "200 out of 200 ... zero tokens offline." | `EntroShopOpen_ScoreTable.mp4` | 8.7s | three stats as a 2-column table, row by row |
+| 7 | "...what the simulator gives us." | `EntroShopSim_Reveal.mp4` | 8.7s | product card, fields highlight |
+| 8–9 | "It doesn't paraphrase... word for word." | (Reveal continues) | — | verbatim stamp |
+| 10 | "...you get 'leather' back..." | `EntroShopSim_ExactMatch.mp4` | 9.3s | question → answer bubbles |
+| 11 | "...exact matching." | (ExactMatch end) | — | equality lands |
+| 12 | "...phrase trie over the whole catalog..." | `EntroShopSim_Trie.mp4` | 10.4s | colorful trie, search flashes |
+| 12b | "...regexes for things like `color: x` and budget." | `EntroShopSim_Regex.mp4` | 5.9s | regex matches |
 | 25 | "...an n-ary tree of category properties." | `EntroShopTree_Grow.mp4` | 6.0s | tree grows level by level |
 | 26–29 | "...one chain ... breadcrumb ... why." | `EntroShopTree_Breadcrumb.mp4` | 3.6s | breadcrumb chain turns yellow |
 | 27 | "...Category lookups are O(1)..." | `EntroShopTree_Lookup.mp4` | 2.5s | (optional) lookup dot down the chain |
@@ -87,19 +94,19 @@ Extras (longer cut / docs):
 | 5 | 0:15 | 200 out of 200 on the public set, 1.59 turns average, zero tokens offline. | clip EntroShopOpen_ScoreTable: rows build, hold after each |
 | 6 | 0:18 | Let's go ahead and walk through it. | Cut to screen recording |
 
-### [0:20–0:55] Scene 1 — the simulator hands you the data (screen recording)
+### [0:20–0:55] Scene 1 — the simulator hands you the data (Manim clips)
 
 | # | Time | VO | Screen |
 |---|------|----|--------|
-| 7 | 0:20 | First, let's talk about what the simulator gives us. | Product card on screen |
-| 8 | 0:23 | It doesn't paraphrase anything. | Highlight "features" field |
-| 9 | 0:26 | The customer literally repeats the product's own metadata, word for word. | Highlight material value |
-| 10 | 0:30 | You ask about material, you get "leather" back, exactly as written. | Callout: input → output "leather" |
-| 11 | 0:34 | So what we're doing here is exact matching. | Fade to phrase-trie diagram |
-| 12 | 0:38 | We built a phrase trie over the whole catalog, plus a few regexes for things like `color: x` and budget. | Trie nodes light up |
-| 13 | 0:44 | Chinese works, English works. | "黑色皮带" → belt |
-| 14 | 0:47 | There's an optional LLM rerank, but it only kicks in when the tree can't decide. | LLM tag grays out |
-| 15 | 0:51 | Offline, we're at zero tokens. | Counter: "0 tokens" |
+| 7 | 0:20 | First, let's talk about what the simulator gives us. | clip EntroShopSim_Reveal: product card, fields highlight |
+| 8 | 0:23 | It doesn't paraphrase anything. | (Reveal continues) features field highlights |
+| 9 | 0:26 | The customer literally repeats the product's own metadata, word for word. | (Reveal) material value; "repeated verbatim" stamp |
+| 10 | 0:30 | You ask about material, you get "leather" back, exactly as written. | clip EntroShopSim_ExactMatch: question → answer bubbles |
+| 11 | 0:34 | So what we're doing here is exact matching. | (ExactMatch) "leather == leather" lands |
+| 12 | 0:38 | We built a phrase trie over the whole catalog, plus a few regexes for things like `color: x` and budget. | clips EntroShopSim_Trie then EntroShopSim_Regex |
+| 13 | 0:44 | Chinese works, English works. | (Regex end) bilingual note overlay |
+| 14 | 0:47 | There's an optional LLM rerank, but it only kicks in when the tree can't decide. | (screen) LLM tag grays out |
+| 15 | 0:51 | Offline, we're at zero tokens. | (screen) counter: "0 tokens" |
 
 ### [0:55–1:45] Scene 2 — let's watch the pool die (screen recording, the required multi-turn session)
 
@@ -150,6 +157,217 @@ Extras (longer cut / docs):
 ---
 
 ## Manim scenes
+
+### docs/manim/simulator.py
+
+Scene 1 disclosure: verbatim fields, exact match, colorful phrase trie, regexes.
+
+```python
+"""Simulator-disclosure clip: verbatim metadata, exact match, phrase trie.
+
+Covers the 33-second Scene 1 VO:
+  "First, let's talk about what the simulator gives us. It doesn't
+   paraphrase anything. The customer literally repeats the product's own
+   metadata, word for word. You ask about material, you get 'leather'
+   back, exactly as written. So what we're doing here is exact matching.
+   We built a phrase trie over the whole catalog, plus a few regexes for
+   things like `color: x` and budget."
+
+Modular scenes (one clip each):
+    manim render -qh simulator.py EntroShopSim_Reveal     # product card fields
+    manim render -qh simulator.py EntroShopSim_ExactMatch # input -> 'leather'
+    manim render -qh simulator.py EntroShopSim_Trie       # colorful phrase trie
+    manim render -qh simulator.py EntroShopSim_Regex      # color: x, budget
+"""
+from manim import *
+
+
+def make_bg(scene: Scene) -> None:
+    bg = Rectangle(width=14.22, height=8.0, fill_color=WHITE,
+                   fill_opacity=1.0, stroke_width=0).set_z_index(-10)
+    scene.add(bg)
+
+
+def title(scene: Scene, text: str) -> Text:
+    t = Text(text, font_size=30, color=BLACK).to_edge(UP, buff=0.4)
+    scene.play(Write(t), run_time=0.5)
+    return t
+
+
+class EntroShopSim_Reveal(Scene):
+    """A product card appears; its metadata fields highlight one by one,
+    then the 'verbatim' stamp lands."""
+
+    def construct(self):
+        make_bg(self)
+        ttl = title(self, "the simulator hands you the data")
+
+        # Product card: title box plus three field rows.
+        card = RoundedRectangle(corner_radius=0.15, width=6.2, height=4.2,
+                                color=GREY_B).shift(LEFT * 0.6)
+        card_title = Text("Product", font_size=26, color=BLACK).move_to(
+            card.get_top() + DOWN * 0.5)
+        fields = [
+            ("material:", "leather"),
+            ("color:", "black"),
+            ("features:", "Ribbon Inlay, Harness Buckle"),
+        ]
+        rows = VGroup()
+        for i, (k, v) in enumerate(fields):
+            key = Text(k, font_size=24, color=BLACK).move_to(
+                card.get_left() + RIGHT * 0.9 + DOWN * (i + 1.2))
+            val = Text(v, font_size=24, color=DARK_BLUE).next_to(
+                key, RIGHT, buff=0.4)
+            rows.add(VGroup(key, val))
+
+        self.play(Create(card), Write(card_title), run_time=0.7)
+        for row in rows:
+            self.play(Write(row), run_time=0.4)
+            self.wait(0.6)
+
+        # Verbatim stamp: the customer repeats this, word for word.
+        stamp = Text("repeated verbatim, word for word", font_size=26,
+                     color=GREEN_E).move_to(card.get_bottom() + DOWN * 0.9)
+        self.play(Write(stamp))
+        self.wait(1.2)
+        self.play(FadeOut(card_title), *[FadeOut(r) for r in rows],
+                  FadeOut(stamp), FadeOut(card))
+        self.wait(0.3)
+
+
+class EntroShopSim_ExactMatch(Scene):
+    """Ask material -> get 'leather' back exactly as written."""
+
+    def construct(self):
+        make_bg(self)
+        ttl = title(self, "exact matching")
+
+        # Question bubble on the left, answer bubble on the right.
+        q = RoundedRectangle(corner_radius=0.3, width=4.4, height=1.1,
+                             fill_color=LIGHT_GREY, fill_opacity=1.0,
+                             color=GREY_B).shift(LEFT * 3.4 + UP * 0.8)
+        q_text = Text("you ask: material?", font_size=28, color=BLACK).move_to(
+            q.get_center())
+        self.play(Create(q), Write(q_text))
+
+        a = RoundedRectangle(corner_radius=0.3, width=4.4, height=1.1,
+                             fill_color=GREEN_A, fill_opacity=1.0,
+                             color=GREEN_E).shift(RIGHT * 3.4 + UP * 0.8)
+        a_text = Text('customer: "leather"', font_size=28, color=BLACK).move_to(
+            a.get_center())
+        self.play(Create(a), Write(a_text))
+
+        # Equality: both strings are byte-identical.
+        eq = Text("leather == leather", font_size=30, color=GREEN_E).to_edge(
+            DOWN, buff=1.0)
+        self.play(Write(eq))
+        self.wait(1.5)
+        self.play(FadeOut(q), FadeOut(q_text), FadeOut(a), FadeOut(a_text),
+                  FadeOut(eq))
+        self.wait(0.3)
+
+
+class EntroShopSim_Trie(Scene):
+    """A colorful phrase trie over the catalog; searching 'leather' flashes
+    the root -> l -> leather path."""
+
+    def construct(self):
+        make_bg(self)
+        ttl = title(self, "phrase trie over the whole catalog")
+
+        # Trie layout: root, then branches for b/l/c/w.
+        root_pos = np.array([0.0, 2.8, 0])
+        branch_pos = {
+            "b": np.array([-5.4, 0.9, 0]),
+            "l": np.array([-1.8, 0.9, 0]),
+            "c": np.array([1.8, 0.9, 0]),
+            "w": np.array([5.4, 0.9, 0]),
+        }
+        leaf_pos = {
+            "belt": np.array([-6.2, -1.4, 0]),
+            "leather": np.array([-2.6, -1.4, 0]),
+            "cotton": np.array([1.0, -1.4, 0]),
+            "wool": np.array([4.6, -1.4, 0]),
+        }
+        branch_colors = {"b": BLUE, "l": TEAL, "c": PURPLE, "w": ORANGE}
+
+        def box(label: str, pos: np.ndarray, color) -> VGroup:
+            r = RoundedRectangle(corner_radius=0.2, width=2.1, height=0.85,
+                                 fill_color=LIGHT_GREY, fill_opacity=1.0,
+                                 color=color)
+            t = Text(label, font_size=22, color=BLACK)
+            return VGroup(r, t).move_to(pos)
+
+        def edge(a: np.ndarray, b: np.ndarray, color) -> Line:
+            return Line(a, b, color=color)
+
+        root = box("catalog phrases", root_pos, GOLD)
+        self.play(Create(root[0]), Write(root[1]), run_time=0.6)
+
+        # Branches: node + edge, each branch its own color.
+        branch_boxes, leaf_boxes, edges = {}, {}, []
+        for k, pos in branch_pos.items():
+            b = box(k, pos, branch_colors[k])
+            branch_boxes[k] = b
+            edges.append(edge(root.get_bottom(), b.get_top(), branch_colors[k]))
+            self.play(Create(b[0]), Write(b[1]), Create(edges[-1]),
+                      run_time=0.35)
+        for word, pos in leaf_pos.items():
+            lb = box(word, pos, branch_colors[word[0]])
+            leaf_boxes[word] = lb
+            edges.append(edge(branch_boxes[word[0]].get_bottom(),
+                              lb.get_top(), branch_colors[word[0]]))
+            self.play(Create(lb[0]), Write(lb[1]), Create(edges[-1]),
+                      run_time=0.35)
+        self.wait(0.5)
+
+        # Search 'leather': highlight root -> l -> leather, then pulse.
+        chain = [root, branch_boxes["l"], leaf_boxes["leather"]]
+        for i, node in enumerate(chain):
+            node[0].set_fill(YELLOW, opacity=0.35)
+            node[0].set_color(YELLOW)
+            node[1].set_color(YELLOW)
+            self.play(node.animate.scale(1.12), run_time=0.2)
+            self.play(node.animate.scale(1.0 / 1.12), run_time=0.2)
+        found = Text('"leather" found, O(1) per step', font_size=26,
+                     color=GREEN_E).to_edge(DOWN, buff=1.0)
+        self.play(Write(found))
+        self.wait(1.5)
+        self.play(FadeOut(found))
+        self.wait(0.3)
+
+
+class EntroShopSim_Regex(Scene):
+    """Regexes catch synthetic constraints: color: x and budget."""
+
+    def construct(self):
+        make_bg(self)
+        ttl = title(self, "regexes for synthetic constraints")
+
+        # A chat line and the two patterns it matches.
+        line1 = Text("customer: color is black", font_size=28, color=BLACK).shift(
+            UP * 1.2)
+        line2 = Text("customer: under 30 dollars", font_size=28,
+                     color=BLACK).shift(DOWN * 0.4)
+        self.play(Write(line1), run_time=0.4)
+        self.play(Write(line2), run_time=0.4)
+
+        pat1 = Text("regex: color:\\s*x", font_size=26, color=TEAL).shift(
+            RIGHT * 3.2 + UP * 1.2)
+        pat2 = Text("regex: budget (\\$\\d+)", font_size=26, color=ORANGE).shift(
+            RIGHT * 3.2 + DOWN * 0.4)
+        self.play(Write(pat1), Write(pat2), run_time=0.5)
+
+        hit1 = Text("→ color: black", font_size=24, color=GREEN_E).next_to(
+            pat1, DOWN, buff=0.5)
+        hit2 = Text("→ $30", font_size=24, color=GREEN_E).next_to(
+            pat2, DOWN, buff=0.5)
+        self.play(Write(hit1), Write(hit2))
+        self.wait(1.8)
+        self.play(FadeOut(line1), FadeOut(line2), FadeOut(pat1), FadeOut(pat2),
+                  FadeOut(hit1), FadeOut(hit2))
+        self.wait(0.3)
+```
 
 ### docs/manim/convergence.py
 

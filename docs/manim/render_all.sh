@@ -12,6 +12,10 @@ render() {  # render <file> <scene>
   if [ -f "$src" ]; then cp "$src" "$OUT/$2.mp4"; else echo "MISSING $src"; fi
 }
 
+render simulator.py EntroShopSim_Reveal
+render simulator.py EntroShopSim_ExactMatch
+render simulator.py EntroShopSim_Trie
+render simulator.py EntroShopSim_Regex
 render convergence.py EntroShopOpen_Cloud
 render convergence.py EntroShopOpen_Target
 render convergence.py EntroShopOpen_Rings
