@@ -112,8 +112,11 @@ export TECHJAM_LLM_MODEL="deepseek-v4-flash"
 
 The LLM path is the recommended configuration: set `TECHJAM_LLM_API_KEY`
 (or a local DeepSeek default) to enable it; it reranks pools of 11–60
-candidates. Without a key, everything runs on the offline deterministic
-ranking at zero cost.
+candidates — but only when the **product-property tree does not already
+converge** ("tree when possible, LLM when the tree is not enough"). When
+the tree pins the candidates to a small set, the deterministic ranking is
+kept and **zero tokens are spent even with a key configured**. Without a
+key, everything runs on the offline deterministic ranking at zero cost.
 
 ## Repository layout
 

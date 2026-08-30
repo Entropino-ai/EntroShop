@@ -138,3 +138,11 @@ visualization and chain-of-thought panel rendered live.
 - The LLM reranker is optional and failure-safe: startup ping probe,
   per-request timeout, truncated-output-tolerant parsing, and automatic
   disable after consecutive failures.
+- **Tree when possible, LLM only when the tree is not enough**: the LLM
+  rerank is gated on the product-property tree. When the tree alone pins
+  the candidates (every category keyword resolves to a subtree and their
+  conjunctive intersection with the pool is small), the deterministic
+  ranking is kept and zero tokens are spent. Only when the tree does not
+  converge (broad or unresolvable category words, large pools) does the
+  optional LLM engage — so most sessions cost nothing even with a key
+  configured.

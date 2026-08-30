@@ -228,6 +228,30 @@ class ProductTree:
                 hits.add(keyword)
         return union, hits
 
+    def converged_pool(self, keywords: list[str], pool: set[str],
+                       threshold: int = 10) -> tuple[bool, set[str]]:
+        """Tree-convergence gate for the LLM-vs-tree decision.
+
+        Returns ``(converged, tree_pool)``. ``converged`` is True when the
+        tree alone pins the candidates: at least one keyword resolved to a
+        subtree, the conjunctive intersection of *all* tree-resolvable
+        keywords is non-empty, and that intersection with the current pool
+        is at most ``threshold`` products. Keywords the tree cannot resolve
+        (materials, colors, free words) are ignored — they are handled by
+        the deterministic routes already. When converged, the tree route is
+        decisive and an LLM rerank would add nothing.
+        """
+        tree_pool: set[str] | None = None
+        for keyword in keywords:
+            subtree = self.subtree_for_keyword(keyword)
+            if not subtree:
+                continue  # not a category property; handled elsewhere
+            tree_pool = subtree if tree_pool is None else (tree_pool & subtree)
+        if tree_pool is None:
+            return False, set()
+        tree_pool &= pool
+        return len(tree_pool) <= threshold, tree_pool
+
     # ------------------------------------------------------------------ stats
     @property
     def node_count(self) -> int:

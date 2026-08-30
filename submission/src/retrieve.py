@@ -155,10 +155,15 @@ def retrieve(
     top_k: int,
     dense=None,
     llm=None,
+    tree=None,
 ) -> tuple[list[str], dict, int]:
-    """Returns (ranked asins, usage, pool size). The optional LLM reranks the
-    top-20 when the pool is medium-sized; failures fall back to heuristic
-    order."""
+    """Returns (ranked asins, usage, pool size).
+
+    The optional LLM reranks the top-20 only when the tree-first route is
+    NOT converged: if the product-property tree alone pins the pool to a
+    small set, the deterministic ranking is kept and zero tokens are spent
+    ("tree when possible, LLM only when the tree is not enough"). Failures
+    fall back to heuristic order."""
     active = [phrase for phrase in state.active_phrases if phrase in index.phrase_postings]
     query_tokens = _query_category_tokens(state.category)
     constraint_tokens = _constraint_tokens(state)
@@ -232,8 +237,22 @@ def retrieve(
     )
 
     # ---- optional LLM reranking of the top candidates ----
+    # Gate: use the LLM only when the tree-first route did NOT converge
+    # ("tree when possible, LLM when the tree is not enough"). The tree is
+    # converged when every category keyword resolves to a subtree and the
+    # conjunctive subtree ∩ pool is small — then the deterministic ranking
+    # is already decisive and tokens are saved.
     usage = {"prompt_tokens": 0, "completion_tokens": 0}
-    if llm is not None and top_k < len(pool) <= 60 and state.history:
+    tree_converged = False
+    if llm is not None and tree is not None and state.history:
+        # competition path: the disclosed coarse category is the tree keyword
+        # source (last-two category parts, e.g. "men belt"); phrase/other
+        # constraints are handled by the deterministic route already
+        tree_keywords = (state.category.split() if state.category else [])
+        if tree_keywords:
+            tree_converged, _ = tree.converged_pool(tree_keywords, pool, threshold=top_k * 2)
+    if (llm is not None and top_k < len(pool) <= 60 and state.history
+            and not tree_converged):
         top_n = ranked[:20]
         candidates = []
         for asin in top_n:

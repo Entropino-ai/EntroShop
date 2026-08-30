@@ -84,7 +84,8 @@ class Agent:
         else:
             state.apply(parsed)
 
-        ranked, usage, pool_size = retrieve(state, self.index, top_k, dense=self.dense, llm=self.llm)
+        ranked, usage, pool_size = retrieve(state, self.index, top_k, dense=self.dense,
+                                            llm=self.llm, tree=self.tree)
         state.last_pool_size = pool_size
         recommendations = [{"parent_asin": asin} for asin in ranked]
 

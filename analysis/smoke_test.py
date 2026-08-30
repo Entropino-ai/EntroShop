@@ -266,6 +266,13 @@ def test_tree_first() -> None:
     _, _, union_tree = freeform_retrieve_with_pool(q, idx, dense, 10, 200, tree=tree)
     check("tree-first pool <= token pool", union_tree <= union_tok,
           f"{union_tree} vs {union_tok}")
+    # tree-vs-LLM gate: converged_pool is True only when the tree pins
+    # candidates; unresolvable keywords (materials etc.) are ignored
+    conv, tp = tree.converged_pool(["gift"], set(idx.products), threshold=10)
+    check("converged_pool true when tree pins (gift)", conv and 0 < len(tp) <= 10,
+          f"conv={conv} pool={len(tp)}")
+    conv_big, _ = tree.converged_pool(["belt"], set(idx.products), threshold=10)
+    check("converged_pool false when tree pool large (belt)", not conv_big, "")
 
 
 def main() -> None:

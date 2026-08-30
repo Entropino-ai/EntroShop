@@ -404,8 +404,14 @@ def chat_turn(session: ChatSession, body: dict) -> dict:
         world_alive = list(pool)  # score-ordered sample (up to 200 entities)
         # optional LLM rerank of the top-20 (DeepSeek default on this machine):
         # the LLM understands role semantics ("gift FOR dad") better than the
-        # lexical/dense hybrid; failures fall back to the heuristic order
-        if AGENT.llm is not None and len(ranked) >= 8:
+        # lexical/dense hybrid; failures fall back to the heuristic order.
+        # "Tree when possible, LLM when the tree is not enough": skip the LLM
+        # whenever the product-property tree already pins the pool.
+        tree_ok = False
+        tree = getattr(AGENT, "tree", None)
+        if tree is not None and accumulated.keywords:
+            tree_ok, _ = tree.converged_pool(accumulated.keywords, set(pool), threshold=10)
+        if AGENT.llm is not None and len(ranked) >= 8 and not tree_ok:
             candidates = []
             for asin in ranked[:15]:
                 product = AGENT.index.products[asin]
