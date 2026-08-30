@@ -59,10 +59,20 @@ def main() -> None:
     parser.add_argument("--catalog", default=str(ROOT / "data" / "catalog.jsonl"))
     args = parser.parse_args()
 
-    # Progress banners go to stderr so stdout stays a clean JSON-RPC stream.
-    print("[mcp] loading catalog + dense index (one-time)...", file=sys.stderr, flush=True)
-    ctx = build_mcp_context(args.catalog)
-    print("[mcp] ready — waiting for JSON-RPC messages on stdin", file=sys.stderr, flush=True)
+    # Redirect ALL library prints (MiniLM progress, fallback banners, ...) to
+    # stderr before the context is built: on stdio transports stdout carries
+    # ONLY newline-delimited JSON-RPC, and any stray text corrupts the framing.
+    # Deep libraries use plain print(), so we temporarily swap sys.stdout.
+    import io
+
+    _real_stdout = sys.stdout
+    sys.stdout = sys.stderr
+    try:
+        print("[mcp] loading catalog + dense index (one-time)...", flush=True)
+        ctx = build_mcp_context(args.catalog)
+        print("[mcp] ready — waiting for JSON-RPC messages on stdin", flush=True)
+    finally:
+        sys.stdout = _real_stdout
 
     for line in sys.stdin:
         line = line.strip()  # Tolerate leading/trailing whitespace in the framing line.

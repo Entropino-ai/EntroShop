@@ -46,3 +46,28 @@ Yes. Free chat maps Chinese input through a clothing-domain zh→en dictionary
 The evaluator discloses at most 4 constraints per session and caps at 10
 turns; asking the highest-entropy unconstrained facet minimizes the expected
 turns to convergence (see chapter [04](04-policy-optimization.md)).
+
+**How do I use the MCP server from Claude Desktop / Cursor?**
+
+The MCP server exposes the four shopping-copilot tools
+(`search_products`, `product_details`, `clarify`, `tree_chain`) over stdio
+or HTTP. Register it in any MCP host (Claude Desktop, Cursor, ...) as a
+stdio server:
+
+```json
+{
+  "mcpServers": {
+    "entroship": {
+      "command": "python3",
+      "args": ["<repo>/demo/mcp_server.py", "--catalog", "<repo>/data/catalog.jsonl"]
+    }
+  }
+}
+```
+
+(Claude Desktop: `claude mcp add entroship -- python3 <repo>/demo/mcp_server.py --catalog <repo>/data/catalog.jsonl`.)
+Stdout carries only newline-delimited JSON-RPC, so the host connection is
+clean; progress banners and the optional MiniLM fallback go to stderr. The
+HTTP transport is also available on a running demo server at
+`POST http://127.0.0.1:8090/mcp` (JSON-RPC 2.0), which is what the
+smoke suite exercises (chapter [06](06-testing.md)).

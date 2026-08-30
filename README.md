@@ -96,6 +96,30 @@ export TECHJAM_LLM_API_KEY="..."            # never commit keys
 export TECHJAM_LLM_MODEL="deepseek-v4-flash"
 ```
 
+## Use it as an MCP server (Claude Desktop / Cursor / any MCP host)
+
+The four shopping-copilot tools — `search_products`, `product_details`,
+`clarify`, `tree_chain` — are exposed over stdio (JSON-RPC 2.0, stdlib-only,
+no install step). Register the server in your MCP host:
+
+```json
+{
+  "mcpServers": {
+    "entroship": {
+      "command": "python3",
+      "args": ["<repo>/demo/mcp_server.py", "--catalog", "<repo>/data/catalog.jsonl"]
+    }
+  }
+}
+```
+
+or on the CLI: `claude mcp add entroship -- python3 <repo>/demo/mcp_server.py
+--catalog <repo>/data/catalog.jsonl`. Stdout carries only newline-delimited
+JSON-RPC, so the connection is clean; progress banners and the optional
+MiniLM fallback go to stderr. The same tools are also served over HTTP by a
+running demo server at `POST http://127.0.0.1:8090/mcp` (see
+`docs/07-faq.md` for examples).
+
 ## Network & Fallback Policy
 
 - **Recommended: online.** Set `TECHJAM_LLM_*` to enable the LLM rerank
