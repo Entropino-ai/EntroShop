@@ -27,9 +27,11 @@ The competition write-up (mini-paper) lives in
 [`PROJECT.md`](PROJECT.md); the standalone stress-test report is in
 [`STRESS_TEST.md`](STRESS_TEST.md). The demo-video script (English,
 Houdini-Foundations-style walkthrough, covers the core loop and the MCP
-server) is in [`DEMO_VIDEO_SCRIPT.md`](DEMO_VIDEO_SCRIPT.md); the
-multi-turn session it can record is specified in
-[`DEMO_SESSION.md`](DEMO_SESSION.md).
+server) is in [`DEMO_VIDEO_SCRIPT.md`](DEMO_VIDEO_SCRIPT.md); its
+line-by-line storyboard with Manim scenes is in
+[`DEMO_VIDEO_STORYBOARD.md`](DEMO_VIDEO_STORYBOARD.md) (renderable
+scenes under [`manim/`](manim/)); the multi-turn session it can record
+is specified in [`DEMO_SESSION.md`](DEMO_SESSION.md).
 
 ## Reader's guide
 
