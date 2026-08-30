@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "entroship": {
+      "type": "stdio",
+      "command": "/Users/faputa/Documents/hackathon/EntroShop/.venv/bin/python",
+      "args": [
+        "/Users/faputa/Documents/hackathon/EntroShop/demo/mcp_server.py",
+        "--catalog",
+        "/Users/faputa/Documents/hackathon/EntroShop/data/catalog.jsonl"
+      ],
+      "env": {
+        "PYTHONPATH": "/Users/faputa/Documents/hackathon/EntroShop"
+      }
+    }
+  }
+}

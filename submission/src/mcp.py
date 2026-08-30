@@ -136,13 +136,17 @@ def _product_summary(asin: str, index: CatalogIndex) -> dict:
     else:
         # List/other shapes are stringified verbatim; [:3] keeps payloads compact.
         feature_list = [str(item) for item in features][:3]
+    # Normalize numerics so MCP hosts never receive non-JSON types: a missing
+    # price becomes an explicit JSON null, and categories default to [] instead
+    # of None so hosts can iterate them unconditionally.
+    price = product.get("price")
     return {
         "parent_asin": asin,
         "title": product.get("title"),
-        "price": product.get("price"),
+        "price": float(price) if price not in (None, "") else None,
         "average_rating": product.get("average_rating"),
         "rating_number": product.get("rating_number"),
-        "categories": product.get("categories"),
+        "categories": product.get("categories") or [],
         "store": product.get("store"),
         "features": feature_list,
     }

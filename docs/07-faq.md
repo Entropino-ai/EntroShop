@@ -51,10 +51,11 @@ turns to convergence (see chapter [04](04-policy-optimization.md)).
 
 The MCP server exposes the four shopping-copilot tools
 (`search_products`, `product_details`, `clarify`, `tree_chain`) over stdio
-or HTTP. **VS Code**: the repo ships `.vscode/mcp.json`, so opening the
-folder and letting Copilot Chat use tools works with zero configuration.
-For any other MCP host (Claude Desktop, Cursor, ...) register it as a
-stdio server:
+or HTTP. The repo ships workspace configs for the two most common
+editors — **VS Code** (`.vscode/mcp.json`, used by Copilot Chat) and
+**Cursor** (`.cursor/mcp.json`) — so opening the folder is enough to let
+the editor's agent call the tools. For any other MCP host (Claude
+Desktop, ...) register it as a stdio server:
 
 ```json
 {
