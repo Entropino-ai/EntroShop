@@ -59,8 +59,8 @@ rendered lengths, so a clip may need a speedup or a hold in the editor.
 | 25 | "...an n-ary tree of category properties." | `EntroShopTree_Grow.mp4` | 5.0s | tree grows |
 | 26–29 | "...one chain ... breadcrumb ... why." | `EntroShopTree_Breadcrumb.mp4` | 3.2s | breadcrumb + lookup |
 | 27 | "...Category lookups are O(1)..." | `EntroShopTree_Lookup.mp4` | 2.2s | (optional) lookup flash |
-| 37–38 | "So, the numbers. Hit rate 100%..." | `EntroShopNumbers_Build.mp4` | 2.5s | table builds |
-| 39–41 | "...TechnicalScore 0.9053... repo..." | `EntroShopNumbers_Highlight.mp4` | 1.5s | winner column + close |
+| 37–38 | "So, the numbers. Hit rate 100%..." | `EntroShopNumbers_Build.mp4` | 6.5s | table builds, holds for reading |
+| 39–41 | "...TechnicalScore 0.9053... repo..." | `EntroShopNumbers_Highlight.mp4` | 6.0s | winner column + close, holds |
 
 Extras (longer cut / docs):
 
@@ -362,7 +362,7 @@ class EntroShopTree_Lookup(Scene):
 
 ### docs/manim/numbers.py
 
-Score table, 2 phases: Build, Highlight.
+Score table, 2 phases: Build (holds per row), Highlight (holds after green).
 
 ```python
 """Score table clip, modular: build rows, then highlight the winner column.
@@ -401,18 +401,24 @@ def build_table() -> VGroup:
 
 
 class EntroShopNumbers_Build(Scene):
-    """Phase 1: the benchmark table builds row by row."""
+    """Phase 1: the benchmark table builds row by row, then holds so the
+    full table is readable before the winner column highlights."""
 
     def construct(self):
         make_bg(self)
         table = build_table()
-        for cells in table:
+        for i, cells in enumerate(table):
             self.play(FadeIn(cells), run_time=0.35)
-        self.wait(0.8)
+            # Hold briefly after each row so a viewer can read it; a longer
+            # hold after the header and after the last row.
+            hold = 1.2 if i in (0, len(table) - 1) else 0.3
+            self.wait(hold)
+        self.wait(1.5)
 
 
 class EntroShopNumbers_Highlight(Scene):
-    """Phase 2: the EntroShop column turns green and holds."""
+    """Phase 2: the EntroShop column turns green row by row, then holds
+    long enough to read every winner stat."""
 
     def construct(self):
         make_bg(self)
@@ -420,7 +426,8 @@ class EntroShopNumbers_Highlight(Scene):
         self.add(table)
         for row in table:
             row[2].set_color(GREEN_E)
-        self.wait(1.5)
+            self.wait(0.6)
+        self.wait(3.0)
 ```
 
 ### docs/manim/pipeline.py

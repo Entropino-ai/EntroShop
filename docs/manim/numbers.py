@@ -34,18 +34,24 @@ def build_table() -> VGroup:
 
 
 class EntroShopNumbers_Build(Scene):
-    """Phase 1: the benchmark table builds row by row."""
+    """Phase 1: the benchmark table builds row by row, then holds so the
+    full table is readable before the winner column highlights."""
 
     def construct(self):
         make_bg(self)
         table = build_table()
-        for cells in table:
+        for i, cells in enumerate(table):
             self.play(FadeIn(cells), run_time=0.35)
-        self.wait(0.8)
+            # Hold briefly after each row so a viewer can read it; a longer
+            # hold after the header and after the last row.
+            hold = 1.2 if i in (0, len(table) - 1) else 0.3
+            self.wait(hold)
+        self.wait(1.5)
 
 
 class EntroShopNumbers_Highlight(Scene):
-    """Phase 2: the EntroShop column turns green and holds."""
+    """Phase 2: the EntroShop column turns green row by row, then holds
+    long enough to read every winner stat."""
 
     def construct(self):
         make_bg(self)
@@ -53,4 +59,5 @@ class EntroShopNumbers_Highlight(Scene):
         self.add(table)
         for row in table:
             row[2].set_color(GREEN_E)
-        self.wait(1.5)
+            self.wait(0.6)
+        self.wait(3.0)
