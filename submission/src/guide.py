@@ -132,7 +132,7 @@ class GuideState:
     def should_converge(self, pool_size: int, turn: int = 0) -> bool:
         # natural convergence + a hard clamp: force the final answer by
         # turn 9 so every session finishes within the 10-turn budget
-        return (self.converged or pool_size <= 5 or self.no_progress >= 2
+        return (self.converged or pool_size <= 10 or self.no_progress >= 2
                 or self.guide_rounds >= 4 or turn >= 9)
 
 
@@ -216,24 +216,33 @@ def choose_facet(index, pool: list[str], state: GuideState, rule: str = "entropy
     return best_facet, best_values
 
 
-def hard_pool(index, state: GuideState) -> set:
+def hard_pool(index, state: GuideState, tree=None) -> set:
     """Conjunctive candidate set implied by the accumulated hard constraints
     (category keywords ∩ materials ∩ colors, price-aware). This is the set
-    that genuinely shrinks turn by turn."""
+    that genuinely shrinks turn by turn.
+
+    When ``tree`` (a ProductTree) is provided, category keywords resolve
+    tree-first (subtree products via the value index); keywords the tree
+    does not match fall back to token postings."""
     from .retrieve import _plural_variants
 
     sets: list[set] = []
     hard_keywords = state.last_keywords or state.keywords
     for keyword in hard_keywords:
-        variant_postings: set = set()
-        for variant in _plural_variants(keyword):
-            postings = index.category_specific_token_postings.get(variant)
-            if postings is None:
-                postings = index.category_token_postings.get(variant)
-            if postings:
-                variant_postings |= postings
-        if variant_postings:
-            sets.append(variant_postings)
+        keyword_set: set = set()
+        if tree is not None:
+            keyword_set = tree.subtree_for_keyword(keyword)
+        if not keyword_set:
+            variant_postings: set = set()
+            for variant in _plural_variants(keyword):
+                postings = index.category_specific_token_postings.get(variant)
+                if postings is None:
+                    postings = index.category_token_postings.get(variant)
+                if postings:
+                    variant_postings |= postings
+            keyword_set = variant_postings
+        if keyword_set:
+            sets.append(keyword_set)
     for material in state.materials:
         postings = index.material_postings.get(material)
         if postings:
@@ -259,9 +268,9 @@ def hard_pool(index, state: GuideState) -> set:
     return intersection
 
 
-def hard_pool_size(index, state: GuideState) -> int:
+def hard_pool_size(index, state: GuideState, tree=None) -> int:
     """Size of hard_pool(); 300 is the dense-only baseline for display."""
-    return len(hard_pool(index, state)) or 300
+    return len(hard_pool(index, state, tree=tree)) or 300
 
 
 def option_labels(facet: str, values) -> list[dict]:

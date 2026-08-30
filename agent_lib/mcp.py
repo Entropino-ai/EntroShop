@@ -128,7 +128,8 @@ def _call_tool(ctx: MCPContext, name: str, arguments: dict) -> object:
         top_k = int(arguments.get("top_k") or 10)
         top_k = max(1, min(top_k, 20))
         parsed = freeform_query(query_text)
-        ranked = freeform_retrieve(parsed, ctx.index, ctx.dense, top_k)
+        ranked = freeform_retrieve(parsed, ctx.index, ctx.dense, top_k,
+                                   tree=ctx.tree)
         return {
             "results": [_product_summary(asin, ctx.index) for asin in ranked],
             "parsed": {

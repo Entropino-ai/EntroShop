@@ -88,6 +88,14 @@ list.
 - `families(min_size)` → chains shared by ≥ N products (the ambiguous
   "family" corner cases)
 - `to_dict(...)` → serializable view for the demo UI
+- `subtree_for_keyword(kw)` / `subtree_for_keywords(kws)` → **tree-first
+  category route**: subtree products per keyword via `value_index` (O(1)
+  per plural variant); root breadcrumb segments are excluded from the index
+- `variants(kw)` → plural forms (public alias used by retrievers to keep
+  the category scoring bonus aligned)
 
 Built once from the frozen catalog (`starter/agent.py`, `demo/server.py`,
-`agent_lib/mcp.py` all attach it); read-only afterwards.
+`agent_lib/mcp.py` all attach it); read-only afterwards. `retrieve.py`
+(`freeform_retrieve*`) and `guide.py` (`hard_pool`) resolve category
+keywords tree-first and fall back to token postings for unmatched keywords.
+

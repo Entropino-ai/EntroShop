@@ -105,6 +105,22 @@ as a coarse-to-fine breadcrumb with the leaf's product count), the MCP
 prefix of two products — the information-theoretic bound behind the
 family-ambiguous corner cases.
 
+### Tree-first category matching
+
+The tree is also the **default category route** in retrieval. A
+`value_index` maps each normalized property token to its nodes (root
+breadcrumb segments like "Clothing, Shoes & Jewelry" are kept in the
+structure but excluded from the index, so a keyword like "shoes" hits the
+real `Shoes` segment instead of the whole catalog). `subtree_for_keyword`
+resolves a keyword to the subtree products with one O(1) lookup per plural
+variant — no token-posting scans. Both `freeform_retrieve*` (pool building)
+and `hard_pool` (conjunctive narrowing) use it first and fall back to token
+postings only for keywords the tree does not match. Result: category
+candidates are exact subtree members (token-substring coincidences across
+segments are dropped), so pools are equal-or-smaller than the token route,
+and tree-matched keywords still receive the category scoring bonus.
+
+
 ## Free chat (demo)
 
 The demo's *Free chat* mode runs the same agent but against the live chat

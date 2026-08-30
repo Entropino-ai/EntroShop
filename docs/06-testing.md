@@ -63,10 +63,31 @@ tree = ProductTree(CatalogIndex("data/catalog.jsonl"))
 assert len(set(tuple(tree.chain(a)) for a in tree.products_for(tree.chain(a)))) > 0
 ```
 
+### 4c. Tree-first retrieval property
+
+The tree-first category route must be a *refinement* of the token route:
+its candidate set is a subset (exact subtree members only), and tree-matched
+keywords still receive the category scoring bonus.
+
+```python
+from agent_lib.dense import DenseIndex
+from agent_lib.guide import GuideState, hard_pool
+from agent_lib.index import CatalogIndex
+from agent_lib.query import freeform_query
+from agent_lib.tree import ProductTree
+
+idx = CatalogIndex("data/catalog.jsonl")
+tree = ProductTree(idx)
+state = GuideState(); state.apply(freeform_query("women boots blue"), "women boots blue")
+hard_tok = hard_pool(idx, state)
+hard_tree = hard_pool(idx, state, tree=tree)
+assert hard_tree <= hard_tok   # refinement, never larger
+```
+
 ### 5. Submission package import
 
 ```bash
-cd submission && python3 -c "import agent, src.agent_lib.guide, src.agent_lib.index; print('ok')"
+cd submission && python3 -c "import agent, src.guide, src.index, src.tree; print('ok')"
 ```
 
 ## Synthetic stress battery

@@ -268,9 +268,14 @@ def _plural_variants(keyword: str) -> set[str]:
     return variants
 
 
-def _freeform_rank(query, index: CatalogIndex, dense):
+def _freeform_rank(query, index: CatalogIndex, dense, tree=None):
     """Build the candidate pool and a scoring closure (shared by the
-    public freeform entry points)."""
+    public freeform entry points).
+
+    When ``tree`` (a ProductTree) is provided, category keywords are
+    resolved tree-first: one O(1) index lookup per variant returns the
+    subtree products, and only keywords the tree did not match fall back
+    to the token-posting route."""
     pool: set[str] = set()
     dense_map: dict[str, float] = {}
     if dense is not None:
@@ -289,7 +294,18 @@ def _freeform_rank(query, index: CatalogIndex, dense):
     for color in query.colors:
         pool |= index.color_postings.get(color, set())
     category_variants: dict[str, set[str]] = {}
-    for keyword in query.keywords:
+    if tree is not None:
+        for keyword in query.keywords:
+            products = tree.subtree_for_keyword(keyword)
+            if products:
+                pool |= products
+                # keep the keyword in category_variants so the scorer gives
+                # the category-bonus (60×weight) for tree-matched chains too
+                category_variants[keyword] = tree.variants(keyword)
+        leftover = [kw for kw in query.keywords if kw not in category_variants]
+    else:
+        leftover = list(query.keywords)
+    for keyword in leftover:
         variants = _plural_variants(keyword)
         variant_postings: set[str] = set()
         for variant in variants:
@@ -349,23 +365,25 @@ def _freeform_rank(query, index: CatalogIndex, dense):
     return pool, score
 
 
-def freeform_retrieve(query, index: CatalogIndex, dense, top_k: int = 10) -> list[str]:
+def freeform_retrieve(query, index: CatalogIndex, dense, top_k: int = 10,
+                      tree=None) -> list[str]:
     """Demo chat-mode retrieval for free-form human input.
 
     Builds candidates from three routes — TF-IDF/MiniLM dense top-N over the
-    whole catalog, synthetic material/color postings, and category-token
-    matches — then ranks with a hybrid score. Not used by the submission
-    agent (the simulator always speaks fixed templates).
+    whole catalog, synthetic material/color postings, and category matches
+    (tree-first when ``tree`` is given, token-posting fallback) — then ranks
+    with a hybrid score. Not used by the submission agent (the simulator
+    always speaks fixed templates).
     """
-    pool, score = _freeform_rank(query, index, dense)
+    pool, score = _freeform_rank(query, index, dense, tree=tree)
     ranked = sorted(pool, key=score, reverse=True)
     return ranked[:top_k]
 
 
 def freeform_retrieve_with_pool(query, index: CatalogIndex, dense, top_k: int = 10,
-                                pool_limit: int = 200):
+                                pool_limit: int = 200, tree=None):
     """freeform_retrieve + (top-scored pool sample, real pool size) for
     facet guidance."""
-    pool, score = _freeform_rank(query, index, dense)
+    pool, score = _freeform_rank(query, index, dense, tree=tree)
     ranked = sorted(pool, key=score, reverse=True)
     return ranked[:top_k], ranked[:pool_limit], len(pool)

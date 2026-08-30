@@ -38,7 +38,7 @@ from .index import CatalogIndex
 class _Node:
     """One property node of the tree."""
 
-    __slots__ = ("value", "parent", "children", "products", "_depth")
+    __slots__ = ("value", "parent", "children", "products", "_depth", "_subtree")
 
     def __init__(self, value: str, parent: "_Node | None" = None) -> None:
         self.value = value
@@ -46,6 +46,7 @@ class _Node:
         self.children: dict[str, _Node] = {}
         self.products: list[str] = []
         self._depth = (parent._depth + 1) if parent is not None else 0
+        self._subtree: set[str] | None = None  # lazily filled; tree is read-only
 
     @property
     def depth(self) -> int:
@@ -65,11 +66,14 @@ class _Node:
         return nodes
 
     def subtree_products(self) -> set[str]:
-        """Every product under this node (its own plus all descendants)."""
-        out = set(self.products)
-        for child in self.children.values():
-            out |= child.subtree_products()
-        return out
+        """Every product under this node (its own plus all descendants).
+        Cached after first call: the tree is built once and read-only."""
+        if self._subtree is None:
+            out = set(self.products)
+            for child in self.children.values():
+                out |= child.subtree_products()
+            self._subtree = out
+        return self._subtree
 
 
 class ProductTree:
@@ -87,10 +91,44 @@ class ProductTree:
         self.root = _Node(root_label)
         self._chain_to_node: dict[tuple[str, ...], _Node] = {}
         self._asin_chain: dict[str, tuple[str, ...]] = {}
+        # value_index: normalized property token -> nodes whose value
+        # contains that token, so a keyword ("boots") finds every node
+        # ("Boots & Booties", "Hiking Boots", ...) in O(1).
+        self.value_index: dict[str, list[_Node]] = {}
         self._build(index.products)
 
     # ------------------------------------------------------------------ build
+    # Universal root segments of every category path ("Clothing, Shoes &
+    # Jewelry" and friends). They are kept in the tree structure (chains stay
+    # complete) but their tokens are NOT indexed: searching "shoes" must hit
+    # the real "Shoes" segment, not the root breadcrumb, or every keyword
+    # would match the whole catalog.
+    ROOT_SEGMENTS = {
+        "clothing, shoes & jewelry",
+        "clothing, shoes & jewellery",
+        "clothing shoes & jewelry",
+        "costumes & accessories",
+        "novelty & special use",
+        "sports fan shop",
+        "clothing & accessories",
+        "under $25",
+        "luxury beauty",
+    }
+
+    @staticmethod
+    def _normalize_token(token: str) -> str:
+        return token.lower().replace("&", "").replace(",", "").strip()
+
+    def _index_node(self, node: _Node) -> None:
+        if node.value.lower().strip() in self.ROOT_SEGMENTS:
+            return  # universal breadcrumb segment: keep structure, skip index
+        for token in node.value.split():
+            token = self._normalize_token(token)
+            if token:
+                self.value_index.setdefault(token, []).append(node)
+
     def _build(self, products: dict) -> None:
+        self._index_node(self.root)
         for asin, product in products.items():
             categories = [str(v) for v in product.get("categories") or []]
             if not categories:
@@ -105,6 +143,7 @@ class ProductTree:
                 if child is None:
                     child = _Node(segment, parent=node)
                     node.children[segment] = child
+                    self._index_node(child)
                 node = child
             node.products.append(asin)
             chain = tuple(path)
@@ -139,6 +178,55 @@ class ProductTree:
                 break
             prefix.append(x)
         return prefix
+
+    # ------------------------------------------------------- tree-first match
+    @staticmethod
+    def _variants(keyword: str) -> set[str]:
+        """Plural/normalized forms of a keyword for index lookups."""
+        base = keyword.lower()
+        variants = {base, base + "s", base + "es"}
+        if base.endswith("y"):
+            variants.add(base[:-1] + "ies")
+        if base.endswith("f"):
+            variants.add(base[:-1] + "ves")
+        if base.endswith("fe"):
+            variants.add(base[:-2] + "ves")
+        return {v for v in variants if v}
+
+    @staticmethod
+    def variants(keyword: str) -> set[str]:
+        """Public alias of ``_variants`` (used by retrievers to keep the
+        category-bonus scoring aligned with tree-matched chains)."""
+        return ProductTree._variants(keyword)
+
+    def subtree_for_keyword(self, keyword: str) -> set[str]:
+        """Products under every node whose property matches the keyword
+        (token-level, with plural variants). This is the tree-first category
+        route: one O(1) index lookup per variant instead of scanning token
+        postings. Empty set when no node matches."""
+        out: set[str] = set()
+        for variant in self._variants(keyword):
+            for node in self.value_index.get(variant, []):
+                out |= node.subtree_products()
+        return out
+
+    def subtree_for_keywords(self, keywords: list[str]) -> tuple[set[str], set[str]]:
+        """Tree-first category candidates for a keyword list.
+
+        Returns ``(union, hits)`` where ``union`` is the set of products
+        whose chain contains any keyword, and ``hits`` is the set of
+        keywords that matched at least one tree node. Keywords without any
+        tree node are *not* in ``hits`` — callers fall back to the token
+        route for those.
+        """
+        union: set[str] = set()
+        hits: set[str] = set()
+        for keyword in keywords:
+            products = self.subtree_for_keyword(keyword)
+            if products:
+                union |= products
+                hits.add(keyword)
+        return union, hits
 
     # ------------------------------------------------------------------ stats
     @property

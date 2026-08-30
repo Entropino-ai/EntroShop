@@ -374,7 +374,8 @@ def chat_turn(session: ChatSession, body: dict) -> dict:
             from agent_lib.query import FreeformQuery
 
             ranked, _, union_size = freeform_retrieve_with_pool(
-                FreeformQuery(), AGENT.index, AGENT.dense, 20, pool_limit=200)
+                FreeformQuery(), AGENT.index, AGENT.dense, 20, pool_limit=200,
+                tree=getattr(AGENT, "tree", None))
             world_alive = list(ranked)
             pool_size = union_size
             converged = True
@@ -387,7 +388,8 @@ def chat_turn(session: ChatSession, body: dict) -> dict:
             from agent_lib.query import FreeformQuery
 
             ranked, _, union_size = freeform_retrieve_with_pool(
-                FreeformQuery(), AGENT.index, AGENT.dense, 20, pool_limit=200)
+                FreeformQuery(), AGENT.index, AGENT.dense, 20, pool_limit=200,
+                tree=getattr(AGENT, "tree", None))
             world_alive = list(ranked)
             pool_size = union_size
             converged = True
@@ -397,7 +399,8 @@ def chat_turn(session: ChatSession, body: dict) -> dict:
             chips = []
     else:
         ranked, pool, union_size = freeform_retrieve_with_pool(accumulated, AGENT.index,
-                                                               AGENT.dense, 20, pool_limit=200)
+                                                               AGENT.dense, 20, pool_limit=200,
+                                                               tree=getattr(AGENT, "tree", None))
         world_alive = list(pool)  # score-ordered sample (up to 200 entities)
         # optional LLM rerank of the top-20 (DeepSeek default on this machine):
         # the LLM understands role semantics ("gift FOR dad") better than the
@@ -433,7 +436,7 @@ def chat_turn(session: ChatSession, body: dict) -> dict:
         ranked = ranked[:TOP_K]
         # rank over the full union pool (recall quality first); the hard
         # intersection size is reported as the "precisely matched" count
-        hard_set = hard_pool(AGENT.index, session.guide)
+        hard_set = hard_pool(AGENT.index, session.guide, tree=getattr(AGENT, "tree", None))
         is_hard = bool(hard_set)
         pool_size = len(hard_set) if hard_set else union_size
         converged = session.guide.should_converge(pool_size, session.turn)

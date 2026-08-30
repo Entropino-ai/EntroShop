@@ -238,6 +238,36 @@ def test_product_tree() -> None:
     check("family detection non-empty", len(fam) > 100, str(len(fam)))
 
 
+def test_tree_first() -> None:
+    print("[8b] tree-first category route (refinement of token route)")
+    from agent_lib.guide import GuideState, hard_pool
+    from agent_lib.index import CatalogIndex
+    from agent_lib.query import freeform_query
+    from agent_lib.tree import ProductTree
+    idx = CatalogIndex(ROOT / "data" / "catalog.jsonl")
+    tree = ProductTree(idx)
+    texts = ["women boots blue", "men belt", "cotton dress", "wool scarf", "sneakers"]
+    ok = True
+    for text in texts:
+        state = GuideState()
+        state.apply(freeform_query(text), text)
+        hard_tok = hard_pool(idx, state)
+        hard_tree = hard_pool(idx, state, tree=tree)
+        if not hard_tree <= hard_tok:
+            ok = False
+            break
+    check("tree hard_pool is a subset of token hard_pool", ok, "")
+    # tree-first retrieves an equal or smaller pool
+    from agent_lib.dense import DenseIndex
+    from agent_lib.retrieve import freeform_retrieve_with_pool
+    dense = DenseIndex(idx.products)
+    q = freeform_query("women boots ankle bootie")
+    _, _, union_tok = freeform_retrieve_with_pool(q, idx, dense, 10, 200, tree=None)
+    _, _, union_tree = freeform_retrieve_with_pool(q, idx, dense, 10, 200, tree=tree)
+    check("tree-first pool <= token pool", union_tree <= union_tok,
+          f"{union_tree} vs {union_tok}")
+
+
 def main() -> None:
     print("=" * 64)
     print("EntroShop smoke suite")
@@ -245,6 +275,7 @@ def main() -> None:
     t0 = time.time()
     test_index_integrity()
     test_product_tree()
+    test_tree_first()
     test_evaluator_regression()
     test_convergence_battery()
     test_demo()
