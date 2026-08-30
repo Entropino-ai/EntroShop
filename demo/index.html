@@ -408,10 +408,13 @@ const cart = {
   },
   clear() { this.items = {}; this.save(); this.render(); },
   total() {
-    return Object.values(this.items).reduce((sum, it) => {
+    // integer cents to avoid float accumulation drift (0.1+0.2 != 0.3)
+    const cents = Object.values(this.items).reduce((sum, it) => {
       const p = Number(it.product?.price ?? 0);
-      return sum + (Number.isFinite(p) ? p : 0) * it.qty;
+      const pc = Number.isFinite(p) ? Math.round(p * 100) : 0;
+      return sum + pc * it.qty;
     }, 0);
+    return cents / 100;
   },
   count() { return Object.values(this.items).reduce((s, it) => s + it.qty, 0); },
   toggle(asin, btnEl) {
@@ -712,7 +715,11 @@ $('llm-skip').onclick = skipLLM;
 $('llm-local').onclick = useLocalLLM;
 
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-const fmtPrice = p => (p === null || p === undefined) ? '—' : '$' + p;
+const fmtPrice = p => {
+  if (p === null || p === undefined) return '—';
+  const n = Number(p);
+  return Number.isFinite(n) ? '$' + n.toFixed(2) : '—';
+};
 const fmtRating = r => (r === null || r === undefined) ? '' : ' ★' + Number(r).toFixed(1);
 
 function setIntent(i) {
