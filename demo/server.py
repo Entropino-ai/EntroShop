@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import random
 import sys
 import uuid
@@ -40,6 +41,7 @@ from agent_lib.guide import (  # noqa: E402
 from agent_lib.llm_rank import LLMReranker  # noqa: E402
 from agent_lib.mcp import MCPContext, handle as mcp_handle  # noqa: E402
 from agent_lib.query import freeform_query  # noqa: E402
+from agent_lib.state import PLANS  # noqa: E402
 from agent_lib.retrieve import freeform_retrieve_with_pool  # noqa: E402
 from agent_lib.tree import ProductTree  # noqa: E402
 
@@ -353,15 +355,30 @@ def demo_trace(turn: int, parsed, state: dict, hit: bool) -> dict:
     return {"turn": turn, "steps": steps}
 
 
+def _light_agent_state(session: ChatSession, parsed, user_message: str) -> None:
+    """Update the competition-path session state for the inspector panel
+    without running the full (expensive) competition retrieve — the demo
+    ranks via the free-form pipeline instead."""
+    state = AGENT._sessions[session.sid]
+    state.history.append(user_message)
+    if session.turn == 1:
+        state.opening_phrases = set(parsed.phrases)
+        state.apply(parsed, is_opening=True)
+        state.plan = list(PLANS[state.intent])
+    else:
+        state.apply(parsed)
+
+
 def chat_turn(session: ChatSession, body: dict) -> dict:
     user_message = str(body.get("user_message") or "").strip()
     session.turn += 1
     session.messages.append(user_message)
     parsed = parse(user_message, AGENT.index)
     query = freeform_query(user_message)
-    # still run the agent for state/message bookkeeping, but rank with the
-    # free-form pipeline (MiniLM/TF-IDF dense + synthetic slots + category)
-    AGENT.respond(session.sid, user_message, session.turn, TOP_K)
+    # lightweight agent bookkeeping for the inspector panel: update the
+    # session state WITHOUT the full competition retrieve (dense + LLM gate
+    # are expensive and the demo ranks with the free-form pipeline below).
+    _light_agent_state(session, parsed, user_message)
 
     # --- convergent guidance engine ---
     session.guide.apply(query, user_message)
@@ -423,7 +440,15 @@ def chat_turn(session: ChatSession, body: dict) -> dict:
         tree_ok = False
         tree = getattr(AGENT, "tree", None)
         if tree is not None and accumulated.keywords:
-            tree_ok, _ = tree.converged_pool(accumulated.keywords, set(pool), threshold=10)
+            # judge convergence on the EXACT hard pool (tree-resolved), not
+            # the free-form top-200 sample — the sample can miss subtree
+            # members and wrongly trigger the LLM. threshold 300: a
+            # tree-pinned pool this small is ranked well by the heuristic
+            # (keyword/category/title signals), so the (slow, network-bound)
+            # LLM rerank is skipped — "tree when possible".
+            hard_set = hard_pool(AGENT.index, session.guide, tree=tree)
+            judge_pool = hard_set if hard_set else set(pool)
+            tree_ok, _ = tree.converged_pool(accumulated.keywords, judge_pool, threshold=300)
         if AGENT.llm is not None and len(ranked) >= 8 and not tree_ok:
             candidates = []
             for asin in ranked[:15]:
@@ -695,15 +720,19 @@ def validate_llm(llm) -> bool:
 
 
 def build_dense(products: dict):
-    """Strongest available dense route: MiniLM transformer, else TF-IDF."""
-    try:
-        from agent_lib.dense import product_text
-        from agent_lib.dense_transformer import TransformerDense
+    """Dense route for the demo: TF-IDF by default (fast, stdlib), MiniLM
+    transformer optional via TECHJAM_DEMO_USE_TRANSFORMER=1 (slower but
+    semantically stronger). The tree-first pipeline skips dense entirely
+    once the tree pins the pool, so the default keeps turns snappy."""
+    if os.environ.get("TECHJAM_DEMO_USE_TRANSFORMER") == "1":
+        try:
+            from agent_lib.dense import product_text
+            from agent_lib.dense_transformer import TransformerDense
 
-        texts = {asin: product_text(product) for asin, product in products.items()}
-        return TransformerDense(products, texts)
-    except Exception as exc:
-        print(f"[server] MiniLM unavailable ({exc}); falling back to TF-IDF", flush=True)
+            texts = {asin: product_text(product) for asin, product in products.items()}
+            return TransformerDense(products, texts)
+        except Exception as exc:
+            print(f"[server] MiniLM unavailable ({exc}); falling back to TF-IDF", flush=True)
     from agent_lib.dense import DenseIndex
 
     return DenseIndex(products)

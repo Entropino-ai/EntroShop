@@ -291,37 +291,25 @@ def _freeform_rank(query, index: CatalogIndex, dense, tree=None):
     """Build the candidate pool and a scoring closure (shared by the
     public freeform entry points).
 
-    When ``tree`` (a ProductTree) is provided, category keywords are
-    resolved tree-first: one O(1) index lookup per variant returns the
-    subtree products, and only keywords the tree did not match fall back
-    to the token-posting route."""
+    Tree-first, dense embedded:
+      1. Tree (or token) category route + material/color slots build the pool.
+      2. If the tree alone pinned the pool small (<= TREE_DENSE_SKIP),
+         dense is skipped entirely — heuristic ranking is already decisive.
+      3. Otherwise dense scores *within the pool* (never the 50k catalog),
+         and its top-300 join the pool when the pool is still huge.
+    """
+    TREE_DENSE_SKIP = 60  # pool this small: skip dense entirely
     pool: set[str] = set()
-    dense_map: dict[str, float] = {}
-    if dense is not None:
-        # include materials/colors in the dense query so semantic models
-        # can enforce them ("wool scarf black" -> black wool scarves)
-        query_text = " ".join(
-            [query.text, *query.keywords, *sorted(query.materials), *sorted(query.colors)]
-        ).strip()
-        if query_text:
-            sims = dense.query_scores(query_text, dense.asins)
-            top = sorted(sims, key=lambda item: -item[1])[:300]
-            dense_map = dict(top)
-            pool |= dense_map.keys()
-    for material in query.materials:
-        pool |= index.material_postings.get(material, set())
-    for color in query.colors:
-        pool |= index.color_postings.get(color, set())
     category_variants: dict[str, set[str]] = {}
+    tree_hits: set[str] = set()
     if tree is not None:
         for keyword in query.keywords:
             products = tree.subtree_for_keyword(keyword)
             if products:
                 pool |= products
-                # keep the keyword in category_variants so the scorer gives
-                # the category-bonus (60×weight) for tree-matched chains too
+                tree_hits.add(keyword)
                 category_variants[keyword] = tree.variants(keyword)
-        leftover = [kw for kw in query.keywords if kw not in category_variants]
+        leftover = [kw for kw in query.keywords if kw not in tree_hits]
     else:
         leftover = list(query.keywords)
     for keyword in leftover:
@@ -336,20 +324,47 @@ def _freeform_rank(query, index: CatalogIndex, dense, tree=None):
         if variant_postings:
             pool |= variant_postings
             category_variants[keyword] = variants
+    for material in query.materials:
+        pool |= index.material_postings.get(material, set())
+    for color in query.colors:
+        pool |= index.color_postings.get(color, set())
+
+    # ---- dense only when the tree did NOT pin the pool ----
+    dense_map: dict[str, float] = {}
+    query_text = " ".join(
+        [query.text, *query.keywords, *sorted(query.materials), *sorted(query.colors)]
+    ).strip()
+    if dense is not None and query_text and pool and len(pool) > TREE_DENSE_SKIP:
+        if len(pool) > 300:
+            sims = dense.query_scores(query_text, list(pool))
+            top = sorted(sims, key=lambda item: -item[1])[:300]
+            dense_map = dict(top)
+            pool |= dense_map.keys()
+        else:
+            sims = dense.query_scores(query_text, list(pool))
+            dense_map = dict(sims)
     if not pool:
         pool = set(index.products)
 
     patterns = {keyword: re.compile(rf"\b{re.escape(keyword)}\b") for keyword in query.keywords}
+    keyword_variants = {
+        kw: _plural_variants(kw) for kw in query.keywords
+    } if hasattr(index, "corpus_tokens") else {}
     weights = query.keyword_weights or {}
     budget = query.budget
 
     def score(asin: str) -> float:
         value = 35.0 * dense_map.get(asin, 0.0)
-        corpus = index.corpus[asin].lower()
+        corpus_tokens = index.corpus_tokens.get(asin) if hasattr(index, "corpus_tokens") else None
         title_tokens = index.title_tokens[asin]
         for keyword, pattern in patterns.items():
             weight = weights.get(keyword, 1.0)
-            if pattern.search(corpus):
+            # fast: token-set membership instead of full-text regex
+            kw_variants = keyword_variants.get(keyword) or (keyword,)
+            if corpus_tokens is not None:
+                if kw_variants & corpus_tokens:
+                    value += 18.0 * weight
+            elif pattern.search(index.corpus[asin].lower()):
                 value += 18.0 * weight
             if keyword in title_tokens:
                 # title mention = strong intent match (helps with
@@ -381,6 +396,28 @@ def _freeform_rank(query, index: CatalogIndex, dense, tree=None):
             value += 3.0 * min(9.5, math.log1p(rating_number))
         return value
 
+    # cheap pre-filter for huge pools: skip the expensive regex scorer for
+    # candidates with no dense hit, no material/color, and no category
+    # variant — their score would be near zero anyway.
+    def _cheap_candidates(asin: str) -> bool:
+        if dense_map.get(asin, 0.0) > 0.0:
+            return True
+        if query.materials & index.material_sets[asin]:
+            return True
+        if query.colors & index.color_sets[asin]:
+            return True
+        if category_variants:
+            cat = index.category_specific_lower[asin]
+            for variants in category_variants.values():
+                if any(v in cat for v in variants):
+                    return True
+        if patterns:
+            title = index.products[asin].get("title") or ""
+            if any(pat.search(title) for pat in patterns.values()):
+                return True
+        return False
+
+    score._cheap_candidates = _cheap_candidates  # type: ignore[attr-defined]
     return pool, score
 
 
@@ -395,8 +432,30 @@ def freeform_retrieve(query, index: CatalogIndex, dense, top_k: int = 10,
     always speaks fixed templates).
     """
     pool, score = _freeform_rank(query, index, dense, tree=tree)
-    ranked = sorted(pool, key=score, reverse=True)
-    return ranked[:top_k]
+    ranked = _top_by_score(pool, score, top_k)
+    return ranked
+
+
+def _top_by_score(pool, score, limit: int) -> list[str]:
+    """Top-``limit`` of the pool by score. When the pool is huge, cheaply
+    pre-filter it (candidates with any strong signal) before scoring, so
+    the expensive scorer never runs over the whole catalog."""
+    if len(pool) <= limit * 50:
+        return sorted(pool, key=score, reverse=True)[:limit]
+    # cheap pre-filter: keep only candidates the scorer can plausibly rank
+    # high (dense similarity present or any keyword/category hit). This
+    # avoids calling score() on tens of thousands of irrelevant products.
+    try:
+        cheap = getattr(score, "_cheap_candidates", None)
+    except AttributeError:
+        cheap = None
+    if cheap is not None:
+        cands = [a for a in pool if cheap(a)]
+        if cands:
+            pool = cands
+    import heapq
+
+    return heapq.nlargest(limit, pool, key=score)
 
 
 def freeform_retrieve_with_pool(query, index: CatalogIndex, dense, top_k: int = 10,
@@ -404,5 +463,17 @@ def freeform_retrieve_with_pool(query, index: CatalogIndex, dense, top_k: int = 
     """freeform_retrieve + (top-scored pool sample, real pool size) for
     facet guidance."""
     pool, score = _freeform_rank(query, index, dense, tree=tree)
-    ranked = sorted(pool, key=score, reverse=True)
+    if len(pool) <= pool_limit * 50:
+        ranked = sorted(pool, key=score, reverse=True)
+        return ranked[:top_k], ranked[:pool_limit], len(pool)
+    try:
+        cheap = getattr(score, "_cheap_candidates", None)
+    except AttributeError:
+        cheap = None
+    cands = [a for a in pool if cheap(a)] if cheap is not None else list(pool)
+    if not cands:
+        cands = list(pool)
+    import heapq
+
+    ranked = heapq.nlargest(pool_limit, cands, key=score)
     return ranked[:top_k], ranked[:pool_limit], len(pool)

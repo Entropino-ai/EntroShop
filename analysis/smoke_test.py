@@ -137,12 +137,27 @@ def test_demo() -> None:
     health = _request("http://127.0.0.1:8090/api/health", None)
     check("health ok", health.get("ok") is True, str(health))
 
-    # chat session: new -> turn until final_asin
+    # chat session: new -> turn (follow guidance chips) until final_asin
     sess = _new_session("chat")
     check("chat session created", bool(sess.get("session_id")), str(sess)[:200])
-    r = _turn(sess["session_id"], "black leather belt under $30")
+    msg = "black leather belt under $30"
+    final = None
+    for _ in range(10):
+        r = _turn(sess["session_id"], msg)
+        final = _final_asin(r)
+        if final:
+            break
+        opts = (r.get("guide") or {}).get("options") or []
+        if not opts:
+            break
+        # follow the first actionable chip (skip the "that's it" converge chip)
+        nxt = next((o for o in opts if o.get("type") != "converge"), None)
+        if not nxt:
+            msg = "that's it"
+            continue
+        msg = nxt.get("message") or nxt.get("value") or msg
     check("chat returns message", bool(r.get("agent_message")), str(r)[:200])
-    check("chat converges to final asin", bool(_final_asin(r)), str(r)[:200])
+    check("chat converges to final asin", bool(final), str(r)[:200])
 
     # example session (needs the kit on PYTHONPATH)
     try:

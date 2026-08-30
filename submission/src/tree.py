@@ -235,21 +235,39 @@ class ProductTree:
         Returns ``(converged, tree_pool)``. ``converged`` is True when the
         tree alone pins the candidates: at least one keyword resolved to a
         subtree, the conjunctive intersection of *all* tree-resolvable
-        keywords is non-empty, and that intersection with the current pool
-        is at most ``threshold`` products. Keywords the tree cannot resolve
-        (materials, colors, free words) are ignored — they are handled by
-        the deterministic routes already. When converged, the tree route is
-        decisive and an LLM rerank would add nothing.
+        keywords (restricted to the caller's pool) is non-empty and at most
+        ``threshold`` products. Keywords the tree cannot resolve (materials,
+        colors, free words) are ignored — handled by the deterministic
+        routes already. Implemented by checking each pool product's own
+        chain against the keyword variants, so it costs O(pool × chain
+        length) — no full-subtree expansion.
         """
-        tree_pool: set[str] | None = None
+        # build the set of tree-resolvable keyword variants once
+        resolvable: set[str] = set()
         for keyword in keywords:
-            subtree = self.subtree_for_keyword(keyword)
-            if not subtree:
-                continue  # not a category property; handled elsewhere
-            tree_pool = subtree if tree_pool is None else (tree_pool & subtree)
-        if tree_pool is None:
+            resolvable |= self._variants(keyword)
+        # split every chain segment into its tokens so a keyword matches
+        # compound segments ("scarf" in "Fashion Scarves & Wraps")
+        resolvable_tokens: set[str] = set()
+        for variant in resolvable:
+            resolvable_tokens.add(variant)
+        for variant in resolvable:
+            for token in variant.split():
+                token = self._normalize_token(token)
+                if token:
+                    resolvable_tokens.add(token)
+        tree_pool: set[str] = set()
+        for asin in pool:
+            chain = self.chain(asin)
+            hit = any(
+                any(self._normalize_token(seg_token) in resolvable_tokens
+                    for seg_token in seg.split())
+                for seg in chain
+            )
+            if hit:
+                tree_pool.add(asin)
+        if not tree_pool:
             return False, set()
-        tree_pool &= pool
         return len(tree_pool) <= threshold, tree_pool
 
     # ------------------------------------------------------------------ stats

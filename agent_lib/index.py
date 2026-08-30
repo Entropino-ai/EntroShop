@@ -96,6 +96,9 @@ class CatalogIndex:
         self.ratings: dict[str, tuple[float | None, int]] = {}
         self.stores: dict[str, str] = {}
         self.corpus: dict[str, str] = {}
+        # token-set view of each product's searchable text: lets retrieval
+        # do O(1) keyword membership instead of full-text regex per candidate
+        self.corpus_tokens: dict[str, frozenset[str]] = {}
 
         with Path(catalog_path).open(encoding="utf-8") as handle:
             for line in handle:
@@ -104,6 +107,7 @@ class CatalogIndex:
                 self.products[asin] = product
                 self.corpus[asin] = searchable_text(product)
                 corpus_lower = self.corpus[asin].lower()
+                self.corpus_tokens[asin] = frozenset(TOKEN_RE.findall(corpus_lower))
 
                 phrases: set[str] = set()
                 for item in (*_flatten_values(product.get("features")), *_flatten_values(product.get("details"))):

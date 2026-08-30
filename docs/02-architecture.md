@@ -120,6 +120,16 @@ candidates are exact subtree members (token-substring coincidences across
 segments are dropped), so pools are equal-or-smaller than the token route,
 and tree-matched keywords still receive the category scoring bonus.
 
+**Performance.** Retrieval is embedded-hybrid and tree-gated: the category
+route (tree, else token postings) plus material/color slots build the pool
+first; the dense route only scores *within that pool* (never the 50k
+catalog) and only when the pool is large; and once the tree pins the pool
+to ≤ 300 exact members, the LLM rerank is skipped entirely — most turns
+finish in well under a second with **zero tokens**. Keyword matching uses
+pre-tokenized `corpus_tokens` sets instead of per-candidate full-text
+regex. The convergence gate judges on the exact hard pool (not the
+free-form top-200 sample), so tree-resolved queries never trigger a slow
+network call.
 
 ## Free chat (demo)
 
