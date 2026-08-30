@@ -17,9 +17,7 @@ render convergence.py EntroShopOpen_Target
 render convergence.py EntroShopOpen_Rings
 render convergence.py EntroShopOpen_Collapse
 render convergence.py EntroShopOpen_Score
-render convergence.py EntroShopOpen_ScoreHit
-render convergence.py EntroShopOpen_ScoreTurns
-render convergence.py EntroShopOpen_ScoreTokens
+render convergence.py EntroShopOpen_ScoreTable
 render tree.py EntroShopTree_Grow
 render tree.py EntroShopTree_Breadcrumb
 render tree.py EntroShopTree_Lookup

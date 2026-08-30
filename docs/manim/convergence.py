@@ -5,10 +5,8 @@ Render all (or just the ones you need):
     manim render -qh convergence.py EntroShopOpen_Target
     manim render -qh convergence.py EntroShopOpen_Rings
     manim render -qh convergence.py EntroShopOpen_Collapse
-    manim render -qh convergence.py EntroShopOpen_Score        # combined
-    manim render -qh convergence.py EntroShopOpen_ScoreHit     # 200/200
-    manim render -qh convergence.py EntroShopOpen_ScoreTurns   # 1.59
-    manim render -qh convergence.py EntroShopOpen_ScoreTokens  # 0
+    manim render -qh convergence.py EntroShopOpen_Score        # combined line
+    manim render -qh convergence.py EntroShopOpen_ScoreTable   # 3-row table
 """
 from manim import *
 import numpy as np
@@ -95,34 +93,28 @@ class EntroShopOpen_Score(Scene):
         self.wait(1.5)
 
 
-def _score_card(scene: Scene, big: str, small: str) -> None:
-    """Draw one big stat with a grey caption under it."""
-    number = Text(big, color=GREEN_E, font_size=72)
-    caption = Text(small, color=GREY, font_size=28).next_to(number, DOWN, buff=0.5)
-    scene.play(Write(number), run_time=0.8)
-    scene.play(Write(caption), run_time=0.4)
-    scene.wait(1.2)
+SCORE_ROWS = [
+    ("Metric", "Value"),
+    ("Hit rate@10", "200/200"),
+    ("Avg. turns to conversion", "1.59"),
+    ("Tokens (offline)", "0"),
+]
 
 
-class EntroShopOpen_ScoreHit(Scene):
-    """Phase 5a: hit rate, 200/200."""
-
-    def construct(self):
-        make_bg(self)
-        _score_card(self, "200/200", "hit rate on the public set")
-
-
-class EntroShopOpen_ScoreTurns(Scene):
-    """Phase 5b: mean turns to conversion, 1.59."""
+class EntroShopOpen_ScoreTable(Scene):
+    """Phase 5: the three headline stats as a two-column table, one row at a
+    time with a hold so each number is readable."""
 
     def construct(self):
         make_bg(self)
-        _score_card(self, "1.59", "average turns to conversion")
-
-
-class EntroShopOpen_ScoreTokens(Scene):
-    """Phase 5c: offline token cost, 0."""
-
-    def construct(self):
-        make_bg(self)
-        _score_card(self, "0", "tokens, offline")
+        table = VGroup()
+        for r, (metric, value) in enumerate(SCORE_ROWS):
+            m = Text(metric, font_size=34, color=BLACK).move_to(
+                LEFT * 2.6 + DOWN * r * 0.9)
+            v = Text(value, font_size=34, color=GREEN_E).move_to(
+                RIGHT * 2.6 + DOWN * r * 0.9)
+            row = VGroup(m, v)
+            table.add(row)
+            self.play(FadeIn(row), run_time=0.4)
+            self.wait(1.2 if r < len(SCORE_ROWS) - 1 else 2.5)
+        self.wait(1.0)

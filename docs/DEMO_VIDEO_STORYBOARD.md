@@ -11,8 +11,8 @@ The scenes are **modular**: each phase is its own Scene class and
 renders to its own clip, so the editor can assemble the 3-minute video
 from the exact shots it needs. 19 clips across 8 source files:
 
-- `convergence.py` — 5 phases: Cloud, Target, Rings, Collapse, Score
-- `tree.py` — 3 phases: Grow, Breadcrumb, Lookup
+- `convergence.py` — 5 phases: Cloud, Target, Rings, Collapse, Score (+ ScoreTable)
+- `tree.py` — 3 phases: Grow, Breadcrumb, Lookup (real multi-level tree)
 - `numbers.py` — 2 phases: Build, Highlight
 - `pipeline.py` — 2 phases: Build, Loop (docs/02)
 - `convergence_policy.py` — 2 phases: Curve, Wall (docs/02)
@@ -55,10 +55,10 @@ rendered lengths, so a clip may need a speedup or a hold in the editor.
 | 2 | "...one product we have to find." | `EntroShopOpen_Target.mp4` | 2.0s | target lights red |
 | 3 | "...we get ten turns to do it." | `EntroShopOpen_Rings.mp4` | 5.2s | ten inward rings |
 | 4 | "...asks the right questions and converges." | `EntroShopOpen_Collapse.mp4` | 3.0s | swarm sweeps in |
-| 5 | "200 out of 200 ... zero tokens offline." | `EntroShopOpen_ScoreHit.mp4` → `EntroShopOpen_ScoreTurns.mp4` → `EntroShopOpen_ScoreTokens.mp4` | 2.4s each | three stats, one per clip |
-| 25 | "...an n-ary tree of category properties." | `EntroShopTree_Grow.mp4` | 5.0s | tree grows |
-| 26–29 | "...one chain ... breadcrumb ... why." | `EntroShopTree_Breadcrumb.mp4` | 3.2s | breadcrumb + lookup |
-| 27 | "...Category lookups are O(1)..." | `EntroShopTree_Lookup.mp4` | 2.2s | (optional) lookup flash |
+| 5 | "200 out of 200 ... zero tokens offline." | `EntroShopOpen_ScoreTable.mp4` | 8.7s | three stats as a 2-column table, row by row |
+| 25 | "...an n-ary tree of category properties." | `EntroShopTree_Grow.mp4` | 6.0s | tree grows level by level |
+| 26–29 | "...one chain ... breadcrumb ... why." | `EntroShopTree_Breadcrumb.mp4` | 3.6s | breadcrumb chain turns yellow |
+| 27 | "...Category lookups are O(1)..." | `EntroShopTree_Lookup.mp4` | 2.5s | (optional) lookup dot down the chain |
 | 37–38 | "So, the numbers. Hit rate 100%..." | `EntroShopNumbers_Build.mp4` | 6.5s | table builds, holds for reading |
 | 39–41 | "...TechnicalScore 0.9053... repo..." | `EntroShopNumbers_Highlight.mp4` | 6.0s | winner column + close, holds |
 
@@ -84,7 +84,7 @@ Extras (longer cut / docs):
 | 2 | 0:03 | Somewhere in a 50,000-item catalog there's one product we have to find. | clip EntroShopOpen_Target: one point brightens red |
 | 3 | 0:08 | A simulated customer answers our questions, and we get ten turns to do it. | clip EntroShopOpen_Rings: ten inward rings; overlay "1 target. 10 turns." |
 | 4 | 0:12 | So we built a little agent that asks the right questions and converges. | clip EntroShopOpen_Collapse: swarm sweeps into the target |
-| 5 | 0:15 | 200 out of 200 on the public set, 1.59 turns average, zero tokens offline. | clips EntroShopOpen_ScoreHit → ScoreTurns → ScoreTokens, one stat each |
+| 5 | 0:15 | 200 out of 200 on the public set, 1.59 turns average, zero tokens offline. | clip EntroShopOpen_ScoreTable: rows build, hold after each |
 | 6 | 0:18 | Let's go ahead and walk through it. | Cut to screen recording |
 
 ### [0:20–0:55] Scene 1 — the simulator hands you the data (screen recording)
@@ -153,7 +153,7 @@ Extras (longer cut / docs):
 
 ### docs/manim/convergence.py
 
-Open clip, 5 phases: Cloud, Target, Rings, Collapse, Score (Score split into Hit/Turns/Token variants).
+Open clip, phases: Cloud, Target, Rings, Collapse, Score (ScoreTable = 3-row stats table).
 
 ```python
 """Open clip, modular: each phase is its own Scene and renders to its own mp4.
@@ -163,10 +163,8 @@ Render all (or just the ones you need):
     manim render -qh convergence.py EntroShopOpen_Target
     manim render -qh convergence.py EntroShopOpen_Rings
     manim render -qh convergence.py EntroShopOpen_Collapse
-    manim render -qh convergence.py EntroShopOpen_Score        # combined
-    manim render -qh convergence.py EntroShopOpen_ScoreHit     # 200/200
-    manim render -qh convergence.py EntroShopOpen_ScoreTurns   # 1.59
-    manim render -qh convergence.py EntroShopOpen_ScoreTokens  # 0
+    manim render -qh convergence.py EntroShopOpen_Score        # combined line
+    manim render -qh convergence.py EntroShopOpen_ScoreTable   # 3-row table
 """
 from manim import *
 import numpy as np
@@ -253,45 +251,42 @@ class EntroShopOpen_Score(Scene):
         self.wait(1.5)
 
 
-def _score_card(scene: Scene, big: str, small: str) -> None:
-    """Draw one big stat with a grey caption under it."""
-    number = Text(big, color=GREEN_E, font_size=72)
-    caption = Text(small, color=GREY, font_size=28).next_to(number, DOWN, buff=0.5)
-    scene.play(Write(number), run_time=0.8)
-    scene.play(Write(caption), run_time=0.4)
-    scene.wait(1.2)
+SCORE_ROWS = [
+    ("Metric", "Value"),
+    ("Hit rate@10", "200/200"),
+    ("Avg. turns to conversion", "1.59"),
+    ("Tokens (offline)", "0"),
+]
 
 
-class EntroShopOpen_ScoreHit(Scene):
-    """Phase 5a: hit rate, 200/200."""
-
-    def construct(self):
-        make_bg(self)
-        _score_card(self, "200/200", "hit rate on the public set")
-
-
-class EntroShopOpen_ScoreTurns(Scene):
-    """Phase 5b: mean turns to conversion, 1.59."""
+class EntroShopOpen_ScoreTable(Scene):
+    """Phase 5: the three headline stats as a two-column table, one row at a
+    time with a hold so each number is readable."""
 
     def construct(self):
         make_bg(self)
-        _score_card(self, "1.59", "average turns to conversion")
-
-
-class EntroShopOpen_ScoreTokens(Scene):
-    """Phase 5c: offline token cost, 0."""
-
-    def construct(self):
-        make_bg(self)
-        _score_card(self, "0", "tokens, offline")
+        table = VGroup()
+        for r, (metric, value) in enumerate(SCORE_ROWS):
+            m = Text(metric, font_size=34, color=BLACK).move_to(
+                LEFT * 2.6 + DOWN * r * 0.9)
+            v = Text(value, font_size=34, color=GREEN_E).move_to(
+                RIGHT * 2.6 + DOWN * r * 0.9)
+            row = VGroup(m, v)
+            table.add(row)
+            self.play(FadeIn(row), run_time=0.4)
+            self.wait(1.2 if r < len(SCORE_ROWS) - 1 else 2.5)
+        self.wait(1.0)
 ```
 
 ### docs/manim/tree.py
 
-Tree clip, 3 phases: Grow, Breadcrumb, Lookup.
+Real multi-level tree, 3 phases: Grow, Breadcrumb, Lookup.
 
 ```python
 """Tree clip, modular: growth, breadcrumb, lookup are separate Scenes.
+
+A real coarse-to-fine tree: Catalog root, then Women/Men/Kids, then Men's
+subtree with Accessories -> Belts as the highlighted chain.
 
 Render:
     manim render -qh tree.py EntroShopTree_Grow
@@ -300,16 +295,43 @@ Render:
 """
 from manim import *
 
+# Node coordinates: (label, x, y). Levels top (root) to bottom (leaf).
+NODES = [
+    ("Catalog", 0.0, 3.4),
+    ("Women", -5.4, 1.6),
+    ("Men", 0.0, 1.6),
+    ("Kids", 5.4, 1.6),
+    ("Apparel", -2.6, -0.2),
+    ("Accessories", 2.6, -0.2),
+    ("Shoes", 5.0, -0.2),
+    ("Belts", 1.0, -2.0),
+    ("Hats", 4.2, -2.0),
+]
 
-def make_tree():
-    root = Text("Catalog", color=BLACK).move_to(UP * 3)
-    mid = Text("Men", color=BLACK).next_to(root, DOWN, buff=0.9)
-    leaf = Text("Belts", color=BLACK).next_to(mid, DOWN, buff=0.9)
-    edges = VGroup(
-        Line(root.get_bottom(), mid.get_top(), color=GREY),
-        Line(mid.get_bottom(), leaf.get_top(), color=GREY),
-    )
-    return root, mid, leaf, edges
+# Edges as (parent index, child index) into NODES.
+EDGES = [
+    (0, 1), (0, 2), (0, 3),
+    (2, 4), (2, 5), (2, 6),
+    (5, 7), (5, 8),
+]
+
+# The chain highlighted as the final breadcrumb: Catalog -> Men -> Accessories -> Belts.
+CHAIN = [0, 2, 5, 7]
+
+
+def node_box(i: int) -> VGroup:
+    label, x, y = NODES[i]
+    box = RoundedRectangle(corner_radius=0.18, width=2.3, height=0.8,
+                           color=GREY_B, fill_color=WHITE, fill_opacity=1.0)
+    text = Text(label, font_size=24, color=BLACK)
+    group = VGroup(box, text).move_to(np.array([x, y, 0]))
+    return group
+
+
+def edge_line(a: int, b: int) -> Line:
+    xa, ya = NODES[a][1], NODES[a][2]
+    xb, yb = NODES[b][1], NODES[b][2]
+    return Line(np.array([xa, ya, 0]), np.array([xb, yb, 0]), color=GREY_B)
 
 
 def make_bg(scene: Scene) -> None:
@@ -319,44 +341,65 @@ def make_bg(scene: Scene) -> None:
 
 
 class EntroShopTree_Grow(Scene):
-    """Phase 1: the coarse-to-fine tree grows top-down."""
+    """Phase 1: the tree grows level by level, root first."""
 
     def construct(self):
         make_bg(self)
-        root, mid, leaf, edges = make_tree()
-        self.play(Write(root))
-        self.play(Write(mid))
-        self.play(Write(leaf))
-        self.play(Create(edges))
+        boxes = [node_box(i) for i in range(len(NODES))]
+        # Root.
+        self.play(Create(boxes[0][0]), Write(boxes[0][1]), run_time=0.6)
+        # Level 2: Women / Men / Kids with edges from root.
+        for i in (1, 2, 3):
+            self.play(Create(edge_line(0, i)), run_time=0.2)
+            self.play(Create(boxes[i][0]), Write(boxes[i][1]), run_time=0.35)
+        # Level 3: Men's subtree.
+        for i in (4, 5, 6):
+            self.play(Create(edge_line(2, i)), run_time=0.2)
+            self.play(Create(boxes[i][0]), Write(boxes[i][1]), run_time=0.35)
+        # Level 4: Accessories' children.
+        for i in (7, 8):
+            self.play(Create(edge_line(5, i)), run_time=0.2)
+            self.play(Create(boxes[i][0]), Write(boxes[i][1]), run_time=0.35)
         self.wait(1.0)
 
 
 class EntroShopTree_Breadcrumb(Scene):
-    """Phase 2: the final pick's root→leaf chain highlights yellow."""
+    """Phase 2: the Catalog -> Men -> Accessories -> Belts chain turns yellow."""
 
     def construct(self):
         make_bg(self)
-        root, mid, leaf, edges = make_tree()
-        self.add(root, mid, leaf, edges)
-        self.play(edges.animate.set_color(YELLOW))
-        self.play(
-            root.animate.set_color(YELLOW),
-            mid.animate.set_color(YELLOW),
-            leaf.animate.set_color(YELLOW),
-        )
+        boxes = [node_box(i) for i in range(len(NODES))]
+        self.add(*[b for box in boxes for b in box])
+        self.add(*[edge_line(a, b) for a, b in EDGES])
+        for a, b in zip(CHAIN, CHAIN[1:]):
+            self.play(edge_line(a, b).animate.set_color(YELLOW), run_time=0.3)
+            for idx in (a, b):
+                box, text = boxes[idx]
+                self.play(box.animate.set_color(YELLOW),
+                          text.animate.set_color(YELLOW), run_time=0.25)
         self.wait(1.2)
 
 
 class EntroShopTree_Lookup(Scene):
-    """Phase 3: an O(1) lookup dot races down the chain, edge by edge."""
+    """Phase 3: an O(1) lookup dot races down the highlighted chain."""
 
     def construct(self):
         make_bg(self)
-        root, mid, leaf, edges = make_tree()
-        self.add(root, mid, leaf, edges)
-        dot = Dot(root.get_bottom(), color=TEAL)
-        self.play(MoveAlongPath(dot, edges[0]), run_time=0.6)
-        self.play(MoveAlongPath(dot, edges[1]), run_time=0.6)
+        boxes = [node_box(i) for i in range(len(NODES))]
+        self.add(*[b for box in boxes for b in box])
+        lines = [edge_line(a, b) for a, b in EDGES]
+        self.add(*lines)
+        for a, b in zip(CHAIN, CHAIN[1:]):
+            edge_line(a, b).set_color(YELLOW)
+            for idx in (a, b):
+                boxes[idx][0].set_color(YELLOW)
+                boxes[idx][1].set_color(YELLOW)
+        # Dot starts at the root box bottom and follows the chain edges.
+        dot = Dot(node_box(CHAIN[0]).get_bottom(), color=TEAL)
+        self.add(dot)
+        for a, b in zip(CHAIN, CHAIN[1:]):
+            line = edge_line(a, b)
+            self.play(MoveAlongPath(dot, line), run_time=0.5)
         self.wait(1.0)
 ```
 
