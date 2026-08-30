@@ -25,11 +25,19 @@ Non-code work is listed where it maps to specific deliverables.
 - Demo UI: standalone chat, MiroFish-style swarm view, chain-of-thought panel,
   guide chips.
 - MCP server (`search_products`, `product_details`, `clarify`).
+- Retrieval engine v2: n-ary product-property tree with unique per-product
+  chains, tree-first category matching in retrieval and hard-pool filtering,
+  and a tree-vs-LLM gate (tree when possible, LLM only when the tree is not
+  enough). Most demo turns now finish under 0.5 s with zero tokens.
 - Policy optimization (RL-style rollout search) and the chapter-per-file
   documentation restructure.
+- Demo productization: unified convergence UI, real shopping cart
+  (2-decimal pricing, integer-cent totals), auto-start sessions, and guided
+  next-step hints in every question.
 - Project write-ups: `docs/PROJECT.md` (mini-paper), `docs/DEMO_SESSION.md`
   (demonstrated multi-turn session), `docs/STRESS_TEST.md`, `DEVPOST.md`
-  (written description + tech stack).
+  (written description + tech stack); refreshed all scores from fresh
+  official-evaluator and stress runs.
 
 ### YH122432
 
