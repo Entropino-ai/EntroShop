@@ -53,6 +53,9 @@
   constraints
 - `should_converge(pool_size, turn)` → bool
 - `option_labels(facet, values)` → clickable chip messages (parser-friendly)
+- `guide_message(pool_size, facet, values)` → question text with an explicit
+  "what you can do next" hint per facet (pick a chip / type a color, material,
+  budget band, or item word)
 - `STARTER_CATEGORIES` — 14 zero-information starter categories
 
 ### `agent_lib/retrieve.py`

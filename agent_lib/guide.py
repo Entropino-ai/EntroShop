@@ -301,7 +301,19 @@ def option_labels(facet: str, values) -> list[dict]:
 
 
 def guide_message(pool_size: int, facet: str, values) -> str:
+    """Question message with an explicit "what you can do next" hint, so the
+    shopper always knows how to narrow the pool further."""
     if facet is None:
-        return f"Converged to {pool_size} exact matches; here are the best candidates."
+        return (f"Converged to {pool_size} exact matches — here are the best "
+                f"candidates. To narrow further, tell me a color, material, "
+                f"or budget (e.g. \"black\", \"leather\", \"under $30\"), or "
+                f"say \"that's it\" to keep this pick.")
     options = ", ".join(option_labels(facet, values)[:4][i]["label"] for i in range(min(4, len(values))))
-    return f"Narrowed to {pool_size} exact matches. Fastest to converge by {FACET_ZH.get(facet, facet)}: {options}"
+    return (f"Narrowed to {pool_size} exact matches. Fastest to converge by "
+            f"{FACET_ZH.get(facet, facet)}: {options}. "
+            + {
+                "color": "Pick one above or type a color, e.g. \"black\" or \"navy\".",
+                "material": "Pick one above or type a material, e.g. \"cotton\" or \"leather\".",
+                "price": "Pick a band above or type a budget, e.g. \"under $40\" or \"$20 to $50\".",
+                "category": "Pick a category above or type an item, e.g. \"boots\" or \"dress\".",
+            }.get(facet, "Pick an option above or describe what you want."))
