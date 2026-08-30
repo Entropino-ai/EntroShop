@@ -51,7 +51,9 @@ turns to convergence (see chapter [04](04-policy-optimization.md)).
 
 The MCP server exposes the four shopping-copilot tools
 (`search_products`, `product_details`, `clarify`, `tree_chain`) over stdio
-or HTTP. Register it in any MCP host (Claude Desktop, Cursor, ...) as a
+or HTTP. **VS Code**: the repo ships `.vscode/mcp.json`, so opening the
+folder and letting Copilot Chat use tools works with zero configuration.
+For any other MCP host (Claude Desktop, Cursor, ...) register it as a
 stdio server:
 
 ```json

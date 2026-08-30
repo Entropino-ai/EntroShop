@@ -1,0 +1,16 @@
+{
+  "servers": {
+    "entroship": {
+      "type": "stdio",
+      "command": "${workspaceFolder}/.venv/bin/python",
+      "args": [
+        "${workspaceFolder}/demo/mcp_server.py",
+        "--catalog",
+        "${workspaceFolder}/data/catalog.jsonl"
+      ],
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}"
+      }
+    }
+  }
+}
