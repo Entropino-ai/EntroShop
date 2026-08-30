@@ -84,5 +84,5 @@ The same agent is exposed as an MCP server (tools: `search_products`, `product_d
 ## Links
 
 - Code: https://github.com/Entropino-ai/EntroShop
-- Demo video: (to be added)
+- Demo video: (3-minute YouTube walkthrough; script ready at docs/DEMO_VIDEO_SCRIPT.md, URL to be added after recording)
 - Data: Amazon Reviews 2023, McAuley Lab, UCSD; see DATA_ATTRIBUTION.md in the repo

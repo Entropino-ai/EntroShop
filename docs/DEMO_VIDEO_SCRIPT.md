@@ -1,98 +1,91 @@
-# Demo Video Script — EntroShop
+# Demo Video Script — EntroShop (3-minute version)
 
-Style: WWDC / NVIDIA engineer walkthrough. Screen-recording with casual
-voice-over, like the person who wrote the code is showing it to you.
-Duration target: 5 min. English only.
+Style: WWDC / NVIDIA engineer walkthrough. Casual voice-over over screen
+recording, like the person who wrote it is showing you. Target: **2:45 to
+3:00** (hard cap; the official Devpost requirement is a public 3-minute
+YouTube demo video). Narrator pace ≈150 words/min → ~450 words of VO.
+
+Screen beats and VO are interleaved below. Cut the tree section first if
+you run long; never cut the multi-turn session (rule 5.10).
 
 ---
 
-## EntroShop — 50,000 products down to one, in 1.59 turns
+## EntroShop — 50,000 products down to one
 
-### Open (0:00)
+### [0:00] Open (VO ≈45 words)
 
 (Product wall, slow zoom. Overlay: "50,000 products. 1 target. 10 turns.")
 
-So the task is: there's a hidden product in a 50,000 item catalog, a
-simulated customer answers your questions, and you get ten turns. That's
-it. Chatting is easy. Converging is the hard part.
+So the task: there's one hidden product in a 50,000-item catalog, a
+simulated customer answers questions, you get ten turns. Chatting is easy.
+Converging is the hard part. We hit 200 out of 200 on the public set,
+1.59 turns average, zero tokens offline.
 
-We got 200 out of 200 on the public set, 1.59 turns average, zero tokens
-offline. Let me show you how.
-
-### The simulator is basically a text match (0:40)
+### [0:20] Scene 1 — the simulator is a text match (VO ≈70 words)
 
 (Product card fields highlight: material, color: x, features, budget.)
 
-First thing you learn reading the simulator: it doesn't paraphrase. The
+First thing you learn from the simulator: it doesn't paraphrase. The
 customer repeats the product's own metadata, word for word. "Leather"
-comes back as "leather."
+comes back as "leather." So exact match wins. Phrase trie over the whole
+catalog, regexes for `color: x` and budget, Chinese and English both work.
+The LLM is only an optional rerank when the tree can't decide.
 
-So exact match wins. We built a phrase trie over the whole catalog, plus
-regexes for `color: x` and budget. Chinese and English both work. The LLM
-is just an optional rerank that runs when the tree can't decide. Offline,
-zero tokens.
+### [0:55] Scene 2 — watch the pool die (VO ≈110 words)
 
-### Watch the pool die (1:30)
+(Demo: free chat "black leather belt under 30 dollars". Fish swim, get
+knocked out. Funnel 50k → 28 → 3 → 1. Chips clicked, crown appears, cart
+add.)
 
-(Demo: fish swimming, getting knocked out. Funnel 50k → 28 → 3 → 1.)
+Here's the fun part. Every product is a fish. Each turn we ask the
+question that splits the pool the most, fish die, the winner gets a crown.
+Each turn is parse, update state, retrieve and rank, decide. Pool small
+enough, crown it. Otherwise ask color, material, price, or category, with
+clickable options. Watch it: black leather belt under thirty, it narrows
+to a handful, then the champion. This is the multi-turn session end to
+end, one of the required deliverables.
 
-This is the fun part. Every product is a fish. Each turn we ask the
-question that splits the pool the most, fish die, and the winner gets a
-crown.
+### [1:45] Scene 3 — the tree gives you the funnel for free (VO ≈45 words)
 
-Each turn is: parse, update state, retrieve and rank, decide. Pool small
-enough? Crown it. Otherwise ask color, material, price, or category, with
-clickable options.
+(Tree grows on the left, final breadcrumb highlights on the right.)
 
-The state machine handles the weird cases. "I changed my mind" only erases
-the superseded preference. The boundary case, where the customer has no
-preference at all, still lands rank one in three turns.
+Underneath is an n-ary tree of category properties. Every product maps to
+one chain, coarse to fine. Two uses. Category lookup is O(1), and when the
+tree pins the pool small we skip the LLM, zero tokens, which is most
+turns. And the final pick shows its chain as a breadcrumb, so you can see
+why.
 
-### The tree gives you the funnel for free (3:00)
+### [2:15] Scene 4 — MCP: drive it from anywhere (VO ≈80 words)
 
-(Tree grows, final breadcrumb highlights.)
-
-Underneath is an n-ary tree of category properties, coarse to fine. Every
-product maps to one chain. Two uses.
-
-One, retrieval. Category lookup is O(1) per keyword variant. When the tree
-pins the pool small, we skip the LLM entirely. That's most turns.
-
-Two, explainability. The final pick shows its chain as a breadcrumb, so
-you can see why. And it's what the MCP server exposes.
-
-### And you can drive it from anywhere (3:40)
-
-(Terminal: claude mcp add entroship. Chat window calling tools.)
+(Terminal: `claude mcp add entroship -- ...`. Chat window calling
+search_products, clarify, tree_chain.)
 
 We also made it an MCP server. Four tools: search_products,
 product_details, clarify, tree_chain. JSON-RPC 2.0, stdlib only, no
 install. Claude Desktop, Cursor, VS Code, anything that speaks MCP can
-drive it.
-
-So you can ask, "search black leather belt under 30 dollars," it returns
+drive it. Ask "search black leather belt under 30 dollars," it returns
 ranked products, clarify asks the next question, tree_chain shows where it
-sits in the tree. Same deterministic core as the competition path, so the
-MCP behavior is the scored behavior.
+sits. Same deterministic core as the scored path, so MCP behavior matches
+the competition behavior.
 
-### The numbers (4:30)
+### [2:50] The numbers + close (VO ≈40 words)
 
-(Benchmark table, hold 3 seconds.)
+(Benchmark table, hold 3 seconds. Fade to repo URL.)
 
-Hit rate at 10: 100%. MRR 0.723. MTTC 1.59 vs 9.81 baseline. TechnicalScore
-0.9053 vs 0.107. Offline zero tokens, online equivalent, network-off
-fallback just works.
-
-Repo: Entropino-ai/EntroShop. Try it, break it, tell us where.
+Hit rate 100%. MRR 0.723. MTTC 1.59 vs 9.81 baseline. TechnicalScore
+0.9053 vs 0.107. Offline zero tokens, network-off fallback just works.
+Repo: Entropino-ai/EntroShop.
 
 ---
 
 ## Recording checklist
 
-- 1080p screen capture, casual voice-over.
-- Arena segment: free chat "black leather belt under 30 dollars", click
-  chips, show the crown and the cart.
+- 1080p screen capture, casual voice-over, English.
+- The arena segment IS the required multi-turn session: start free chat
+  "black leather belt under 30 dollars", click chips until the crown,
+  show the cart add. That alone satisfies rule 5.10.
 - MCP segment: real `claude mcp add entroship -- ...`, then one
-  conversation calling search_products, clarify, tree_chain in sequence.
-- Benchmark table: freeze 3 seconds.
-- Keep it under 5 minutes. Cut the tree section if you need to.
+  conversation calling search_products, clarify, tree_chain.
+- Benchmark table freezes 3 seconds so the numbers are readable.
+- Hard cap 3:00. If over: cut Scene 3 (tree) first; keep the MCP beat and
+  the multi-turn session.
