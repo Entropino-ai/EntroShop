@@ -15,12 +15,20 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 
+# Precompiled regexes for slot extraction. Grouping the patterns here keeps the
+# parse logic out of the hot path and makes each pattern's contract explicit.
+# BUDGET_RE: "budget 30" / "预算30美元" / "价格30" -> captures the numeric amount.
 BUDGET_RE = re.compile(r"(?:budget|預算|预算|价格|價格)\D{0,12}?(\d{1,5}(?:\.\d{1,2})?)", re.I)
+# UNDER_RE: "under 30" / "不到30" -> upper-bound amounts phrased as "below X".
 UNDER_RE = re.compile(r"(?:under|below|less than|不到|以下|以内|以內)\D{0,6}?(\d{1,5}(?:\.\d{1,2})?)", re.I)
+# RANGE_RE: "budget 20-50" / "预算20到50" -> captures a lower and an upper bound.
 RANGE_RE = re.compile(r"(?:budget|預算|预算)\D{0,8}?(\d{1,5})\s*(?:[-~到至])\s*(\d{1,5})", re.I)
+# ABOVE_RE: "预算100以上" -> lower-bound amounts phrased as "X or more".
 ABOVE_RE = re.compile(r"(?:budget|預算|预算)\D{0,8}?(\d{1,5})\D{0,4}?(?:以上|及以上)", re.I)
+# MATERIAL_RE / COLOR_RE: English words that map 1:1 onto the shared synthetic slots.
 MATERIAL_RE = re.compile(r"\b(cotton|polyester|nylon|leather|wool|spandex|silk|rayon|fabric|denim|down|fleece)\b", re.I)
 COLOR_RE = re.compile(r"\b(black|white|blue|red|pink|green|brown|gray|grey|purple|yellow|orange)\b", re.I)
+# TOKEN_RE: splits arbitrary text into alphanumeric runs used as keyword candidates.
 TOKEN_RE = re.compile(r"[a-z0-9]+", re.I)
 
 STOPWORDS = {
@@ -91,6 +99,16 @@ ZH_EN = [
 
 @dataclass
 class FreeformQuery:
+    """Structured interpretation of a free-form chat message.
+
+    WHY: the competition simulator speaks fixed English templates, but the demo
+    chat accepts arbitrary human input. This container normalizes that input
+    into the same synthetic slots the main pipeline consumes, so both layers
+    share one vocabulary. It is a plain data holder: `freeform_query()` is the
+    only constructor used in practice. `recent_*` keeps the newest material /
+    color mention separate from the accumulated set, and `keyword_weights`
+    reserves a numeric recency-decay channel for downstream layers.
+    """
     text: str = ""
     keywords: list[str] = field(default_factory=list)   # English content tokens
     keyword_weights: dict[str, float] = field(default_factory=dict)  # recency decay
@@ -102,10 +120,23 @@ class FreeformQuery:
 
 
 def _map_chinese(text: str) -> list[str]:
+    """Translate Chinese clothing keywords in `text` into English tokens.
+
+    WHY: the catalog and the main pipeline share English vocabulary, so Chinese
+    demo input must be normalized before keyword extraction. ZH_EN entries are
+    sorted longest-first so compound words (e.g. "羽绒服" -> "down jacket") are
+    consumed before their substrings ("羽绒" -> "down"). Matched spans are blanked
+    with spaces rather than deleted so the offsets of un-matched text stay stable,
+    and each occurrence is expanded one at a time so duplicated words are kept.
+    Returns a flat list of English tokens (space-split from each mapping's value),
+    in dictionary-scan order rather than source order.
+    """
     mapped: list[str] = []
     remaining = text
     # longest pattern first so "羽绒服" beats "羽绒"
     for pattern, tokens in sorted(ZH_EN, key=lambda item: -len(item[0])):
+        # Blank each occurrence one at a time so a character is never matched
+        # twice, while still expanding repeated instances of the same word.
         while pattern in remaining:
             mapped.extend(tokens.split())
             remaining = remaining.replace(pattern, " ", 1)
@@ -113,12 +144,28 @@ def _map_chinese(text: str) -> list[str]:
 
 
 def freeform_query(text: str) -> FreeformQuery:
+    """Parse a free-form chat message into a structured `FreeformQuery`.
+
+    Extraction happens in four stages:
+      1. materials/colors from explicit English regexes plus the Chinese
+         dictionary mapping, so both languages share the same slots;
+      2. budget with explicit precedence — an explicit range wins, then the
+         budget/under/above single-value patterns, "above" inflated as a proxy;
+      3. generic English content tokens, stopword-filtered and deduplicated;
+      4. cleanup that drops keywords already captured as a material or color.
+
+    Pure function: it never mutates `text` and has no side effects. When no
+    amount parses, `budget` stays None rather than raising, and non-numeric
+    garbage is silently skipped. Returns the populated `FreeformQuery`.
+    """
     query = FreeformQuery(text=text)
     lowered = text.lower()
 
     # synthetic slots from both English and mapped Chinese
     query.materials = {m.lower() for m in MATERIAL_RE.findall(lowered)}
     query.colors = {c.lower() for c in COLOR_RE.findall(lowered)}
+    # Bucket each Chinese-mapped token into the shared slot vocabulary; only
+    # words that are neither a material nor a color become generic keywords.
     for keyword in _map_chinese(lowered):
         if keyword in {"cotton", "polyester", "nylon", "leather", "wool", "spandex",
                        "silk", "rayon", "fabric", "denim", "down", "fleece", "flannel"}:
@@ -130,6 +177,8 @@ def freeform_query(text: str) -> FreeformQuery:
             query.keywords.append(keyword)
 
     # budget: "budget around $30" / "预算30美元" / "under $30" / "20到50美元" / "100美元以上"
+    # A range is the most specific signal, so it is tried first and its
+    # midpoint stands in for the single budget value.
     range_match = RANGE_RE.search(text)
     if range_match:
         try:
@@ -137,6 +186,7 @@ def freeform_query(text: str) -> FreeformQuery:
             query.budget = (low + high) / 2.0
         except ValueError:
             pass
+    # Only fall through to the single-value patterns if no range was parsed.
     if query.budget is None:
         for pattern in (BUDGET_RE, UNDER_RE, ABOVE_RE):
             match = pattern.search(text)
@@ -150,6 +200,8 @@ def freeform_query(text: str) -> FreeformQuery:
                     pass
 
     # English content tokens (stopword-filtered, len>=2)
+    # Seed the dedup set with Chinese-mapped keywords so a token already added
+    # via mapping is not appended twice; pure digits are noise and are skipped.
     seen = set(query.keywords)
     for token in TOKEN_RE.findall(lowered):
         if token.isdigit():

@@ -41,30 +41,48 @@ _segment_token_cache: dict[str, frozenset[str]] = {}
 
 
 class _Node:
-    """One property node of the tree."""
+    """One property node of the tree.
+
+    A node stores a single category segment as its ``value`` and links to its
+    ``parent`` and ``children``, so the whole tree is an n-ary containment
+    hierarchy. ``products`` holds the catalog ASINs mapped to this exact node.
+    ``_subtree`` and ``_size`` are lazily computed aggregate caches: the tree
+    is built once and never mutated afterwards, so caching is safe and makes
+    repeated subtree queries O(1) after their first call.
+    """
 
     __slots__ = ("value", "parent", "children", "products", "_depth", "_subtree", "_size")
 
     def __init__(self, value: str, parent: "_Node | None" = None) -> None:
+        """Create a node; depth is derived from the parent (root has depth 0)."""
         self.value = value
         self.parent = parent
         self.children: dict[str, _Node] = {}
         self.products: list[str] = []
+        # depth = parent depth + 1, so the root is 0 and every node's depth is
+        # its distance from the root along parent pointers
         self._depth = (parent._depth + 1) if parent is not None else 0
         self._subtree: set[str] | None = None  # lazily filled; tree is read-only
         self._size: int | None = None
 
     @property
     def depth(self) -> int:
+        """Distance from the root (root is 0), precomputed at construction."""
         return self._depth
 
     def is_leaf(self) -> bool:
+        """True when this node has no children (a deepest category segment)."""
         return not self.children
 
     def chain(self) -> list[str]:
-        """Node values from the root down to (and including) this node."""
+        """Node values from the root down to (and including) this node.
+
+        Walks parent pointers upward (the cheap direction given the tree only
+        stores parent links), then reverses so callers get root-first order.
+        """
         nodes: list[str] = []
         node: _Node | None = self
+        # climb parent pointers to the root, then reverse for root-first order
         while node is not None:
             nodes.append(node.value)
             node = node.parent
@@ -76,6 +94,7 @@ class _Node:
         Cached after first call: the tree is built once and read-only."""
         if self._subtree is None:
             out = set(self.products)
+            # union this node's own products with every descendant's products
             for child in self.children.values():
                 out |= child.subtree_products()
             self._subtree = out
@@ -86,6 +105,7 @@ class _Node:
         descendants). O(1) after first call; no set materialization."""
         if self._size is None:
             total = len(self.products)
+            # sum own products plus each child's subtree count
             for child in self.children.values():
                 total += child.subtree_size()
             self._size = total
@@ -104,6 +124,14 @@ class ProductTree:
     """
 
     def __init__(self, index: CatalogIndex, root_label: str = "catalog") -> None:
+        """Build the tree from the catalog and populate the query mappings.
+
+        Creates the synthetic root, then ``_build`` walks every product's
+        category path to construct the node hierarchy and fill the three lookup
+        structures: ``_chain_to_node`` (chain -> node), ``_asin_chain``
+        (asin -> chain) and ``value_index`` (token -> nodes). The tree is
+        immutable after construction.
+        """
         self.root = _Node(root_label)
         self._chain_to_node: dict[tuple[str, ...], _Node] = {}
         self._asin_chain: dict[str, tuple[str, ...]] = {}
@@ -133,17 +161,39 @@ class ProductTree:
 
     @staticmethod
     def _normalize_token(token: str) -> str:
+        """Lowercase a token and strip separators so index lookups are stable.
+
+        Removing ``&`` and ``,`` makes "Shoes & Boots" and "Shoes, Boots"
+        tokenize identically; callers and the index use the same form, so a
+        keyword can be matched against compound segment text reliably.
+        """
+        # lowercase then drop ampersands/commas and surrounding whitespace
         return token.lower().replace("&", "").replace(",", "").strip()
 
     def _index_node(self, node: _Node) -> None:
+        """Add a node's property tokens to ``value_index`` for keyword lookup.
+
+        Each whitespace-separated token of the node's value becomes a key that
+        maps to every node containing it. Universal breadcrumb segments are
+        deliberately skipped so a generic token like "shoes" cannot match the
+        whole catalog through the root breadcrumb.
+        """
         if node.value.lower().strip() in self.ROOT_SEGMENTS:
             return  # universal breadcrumb segment: keep structure, skip index
+        # split multi-word values into individual tokens ("Boots & Booties")
         for token in node.value.split():
             token = self._normalize_token(token)
             if token:
                 self.value_index.setdefault(token, []).append(node)
 
     def _build(self, products: dict) -> None:
+        """Construct the node hierarchy from the catalog's category paths.
+
+        For each product, walk its ordered ``categories`` list and create (or
+        reuse) one node per segment, so identical prefixes share nodes. The
+        final node records the ASIN as a concrete product, and both the
+        chain -> node and asin -> chain maps are filled for later queries.
+        """
         self._index_node(self.root)
         for asin, product in products.items():
             categories = [str(v) for v in product.get("categories") or []]
@@ -153,16 +203,18 @@ class ProductTree:
                 categories = [f"__no_category__/{asin}"]
             node = self.root
             path: list[str] = []
+            # walk/create the chain one segment at a time, reusing existing nodes
             for segment in categories:
                 path.append(segment)
                 child = node.children.get(segment)
                 if child is None:
                     child = _Node(segment, parent=node)
                     node.children[segment] = child
-                    self._index_node(child)
+                    self._index_node(child)  # index only newly created nodes
                 node = child
             node.products.append(asin)
             chain = tuple(path)
+            # first chain wins the node reference; later identical chains share it
             self._chain_to_node.setdefault(chain, node)
             self._asin_chain[asin] = chain
 
@@ -189,6 +241,7 @@ class ProductTree:
         """Longest shared chain prefix of two products (LCA in the tree)."""
         a, b = self.chain(asin_a), self.chain(asin_b)
         prefix: list[str] = []
+        # zip stops at the shorter chain; break at the first divergence
         for x, y in zip(a, b):
             if x != y:
                 break
@@ -201,6 +254,8 @@ class ProductTree:
         """Plural/normalized forms of a keyword for index lookups."""
         base = keyword.lower()
         variants = {base, base + "s", base + "es"}
+        # handle irregular-ish plurals so a keyword matches differently-spelled
+        # segment tokens ("berry" vs "berries", "knife" vs "knives", ...)
         if base.endswith("y"):
             variants.add(base[:-1] + "ies")
         if base.endswith("f"):
@@ -266,6 +321,8 @@ class ProductTree:
             if seg_tokens & tokens:
                 size = node.subtree_size()
                 if size > 0:
+                    # information gain of a match at this depth: a smaller
+                    # subtree pins down exponentially more bits (binary search)
                     bonus += math.log2(max(1.0, catalog_n / size))
         return bonus
 
@@ -318,6 +375,8 @@ class ProductTree:
         tree_pool: set[str] = set()
         for asin in pool:
             chain = self.chain(asin)
+            # product matches when ANY chain segment has a token shared with
+            # the resolved keyword variants (inner any scans segment tokens)
             hit = any(
                 any(self._normalize_token(seg_token) in resolvable_tokens
                     for seg_token in seg.split())
@@ -332,38 +391,53 @@ class ProductTree:
     # ------------------------------------------------------------------ stats
     @property
     def node_count(self) -> int:
+        """Total nodes in the tree, including the synthetic root."""
         return len(self._chain_to_node) + 1  # + root
 
     @property
     def leaf_count(self) -> int:
+        """Number of leaf nodes (nodes with no children)."""
         return sum(1 for n in self._chain_to_node.values() if n.is_leaf())
 
     def depth_histogram(self) -> dict[int, int]:
+        """Count of nodes at each depth, keyed by depth (sorted ascending)."""
         hist: dict[int, int] = {}
+        # tally nodes per depth; sorting yields a stable depth profile
         for node in self._chain_to_node.values():
             hist[node.depth] = hist.get(node.depth, 0) + 1
         return dict(sorted(hist.items()))
 
     def families(self, min_size: int = 2) -> list[tuple[list[str], int]]:
-        """Chains shared by >= min_size products (the ambiguous families)."""
+        """Chains shared by >= min_size products (the ambiguous families).
+
+        Returns ``(chain, product_count)`` pairs sorted by count descending,
+        so the most ambiguous families (largest shared chains) come first.
+        """
         return sorted(
             ((list(chain), len(node.products)) for chain, node in
              self._chain_to_node.items() if len(node.products) >= min_size),
-            key=lambda item: -item[1],
+            key=lambda item: -item[1],  # negative count -> descending order
         )
 
     # ------------------------------------------------------------------ iter
     def iter_nodes(self) -> Iterator[_Node]:
+        """Yield every node in the tree via iterative depth-first traversal.
+
+        Uses an explicit stack (rather than recursion) to avoid hitting the
+        interpreter recursion limit on deep category paths.
+        """
         stack = [self.root]
         while stack:
             node = stack.pop()
             yield node
-            stack.extend(node.children.values())
+            stack.extend(node.children.values())  # push children for DFS
 
     def to_dict(self, node: _Node | None = None, limit: int | None = None) -> dict:
         """Serializable tree for the demo UI.
 
-        ``limit`` bounds children per node so a huge tree stays renderable.
+        Recursively renders a node as a plain dict. ``limit`` bounds children
+        per node so a huge tree stays renderable; leaf nodes expose at most 10
+        sample products to keep the payload small.
         """
         node = node or self.root
         out: dict = {
@@ -374,9 +448,10 @@ class ProductTree:
         }
         children = list(node.children.values())
         if limit is not None:
-            children = children[:limit]
+            children = children[:limit]  # cap fan-out so wide trees stay small
         if children:
+            # recurse into (capped) children; non-leaf nodes show structure
             out["children"] = [self.to_dict(c, limit) for c in children]
         elif node.products:
-            out["products"] = node.products[:10]
+            out["products"] = node.products[:10]  # leaf: show a sample, not all
         return out

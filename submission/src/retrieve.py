@@ -19,19 +19,19 @@ from itertools import combinations
 from .index import CatalogIndex
 from .state import ConversationState
 
-W_PHRASE = 100.0
-W_SUPERSEDED = 30.0
-W_MAT = 25.0
-W_COL = 25.0
-W_BUDGET = 40.0
-W_CAT = 60.0
-W_CAT_SUBSTR = 20.0
-W_TITLE = 16.0
+W_PHRASE = 100.0   # exact-phrase hit: simulator discloses verbatim strings
+W_SUPERSEDED = 30.0  # formerly active phrase still disclosed, weaker signal
+W_MAT = 25.0       # per matching material word already disclosed by the user
+W_COL = 25.0       # per matching color word already disclosed by the user
+W_BUDGET = 40.0    # budget proximity (scaled by the closeness factor)
+W_CAT = 60.0       # exact coarse-category match (tight, always-safe filter)
+W_CAT_SUBSTR = 20.0  # category string appears as substring of item category
+W_TITLE = 16.0     # disclosed constraint word appearing in the title
 W_CORPUS = 8.0  # full-text overlap of disclosed constraint words (target
                 # fingerprint; resolves near-ties inside info-bound pools)
-W_CAT_TITLE = 3.0
-W_TAG = 0.0
-W_RATING = 4.0
+W_CAT_TITLE = 3.0   # category token appears in the title (weak tiebreak)
+W_TAG = 0.0         # profile preference-tag affinity (0 = effectively disabled)
+W_RATING = 4.0      # small prior toward higher-rated items
 W_POP = 8.0  # log popularity prior: purchase-record targets skew popular
 W_TFIDF = 30.0  # dense-route cosine similarity (only applied when pool is large)
 W_STYLE = 20.0  # rating_style consistency: "usually positive" users buy high-rated items
@@ -43,7 +43,15 @@ DENSE_MIN_HISTORY = 1  # apply only once this many user messages arrived
 
 
 def _style_consistency(rating: float | None, profile: dict) -> bool:
+    """Return whether an item's rating matches the user's disclosed rating style.
+
+    The user profile may reveal how the user typically rates items ("usually
+    positive" vs "critical"). Consistency is a weak bonus (W_STYLE), never a
+    hard filter: "mixed"/unknown styles and missing ratings always return True
+    so nothing is wrongly penalized.
+    """
     style = profile.get("rating_style", "")
+    # Unknown style or no rating: no basis to judge, so treat as consistent.
     if style == "mixed" or rating is None:
         return True
     if style == "usually positive":
@@ -52,16 +60,32 @@ def _style_consistency(rating: float | None, profile: dict) -> bool:
         return rating <= 3.5
     return True
 
+# Near-universal category words that carry no discriminative power: they are
+# dropped from category token sets so they can't drown out real signals.
 CATEGORY_JUNK = {"clothing", "shoes", "jewelry", "women", "men", "girls", "boys", "baby"}
+# Shared tokenizer: alphanumeric runs only, case-insensitive.
 TOKEN_RE = re.compile(r"[a-z0-9]+", re.IGNORECASE)
 
 
 def _query_category_tokens(category: str) -> set[str]:
+    """Split the disclosed coarse category into meaningful lowercase tokens.
+
+    Only alphanumeric tokens longer than one character are kept, and junk
+    words (clothing, shoes, gender words, etc.) are dropped because they are
+    near-universal and carry no discriminative power across categories.
+    """
     tokens = {token.lower() for token in TOKEN_RE.findall(category) if len(token) > 1}
     return tokens - CATEGORY_JUNK
 
 
 def _budget_score(price: float | None, budget: float) -> float:
+    """Score how close an item's price is to the user's budget.
+
+    Returns W_BUDGET scaled by a linear closeness factor: 1.0 at an exact
+    match, decaying to 0.0 once the gap reaches the budget magnitude. Missing
+    prices score 0.0 (neutral) so unlisted items are never wrongly rewarded or
+    penalized; ``max(abs(budget), 1.0)`` guards against divide-by-zero.
+    """
     if price is None:
         return 0.0
     closeness = max(0.0, 1.0 - abs(price - budget) / max(abs(budget), 1.0))
@@ -69,6 +93,12 @@ def _budget_score(price: float | None, budget: float) -> float:
 
 
 def _constraint_tokens(state: ConversationState) -> set[str]:
+    """Collect every disclosed constraint word into a single token set.
+
+    Unions the alphanumeric tokens of active and superseded phrases with the
+    material and color words. Used for fuzzy title/corpus/tree overlap signals
+    (not exact matching), so coverage matters more than precision here.
+    """
     tokens: set[str] = set()
     for phrase in state.active_phrases | state.superseded:
         tokens |= {token.lower() for token in TOKEN_RE.findall(phrase) if len(token) > 1}
@@ -77,9 +107,18 @@ def _constraint_tokens(state: ConversationState) -> set[str]:
 
 
 def _category_candidates(index: CatalogIndex, tokens: set[str], limit: int = 3000) -> set[str]:
+    """Compute the conjunctive candidate set for category tokens, with early exit.
+
+    Intersects posting lists in order of increasing size (rarest token first)
+    so the running intersection stays small. Stops once the candidate set is
+    at or below ``limit`` — enough to rank without fully intersecting. Returns
+    an empty set for empty ``tokens`` or any token with no postings (an
+    impossible conjunction).
+    """
     if not tokens:
         return set()
     candidates: set[str] | None = None
+    # Rare-first ordering minimizes the size of the running intersection.
     for token in sorted(tokens, key=lambda token: len(index.category_token_postings.get(token, ()))):
         postings = index.category_token_postings.get(token)
         if not postings:
@@ -91,10 +130,17 @@ def _category_candidates(index: CatalogIndex, tokens: set[str], limit: int = 300
 
 
 def _category_intersection(index: CatalogIndex, tokens: set[str]) -> set[str]:
-    """Full intersection over all category tokens (no early exit)."""
+    """Full intersection over all category tokens (no early exit).
+
+    Unlike ``_category_candidates`` this always intersects every token, so the
+    result is the tightest category-conjunctive pool — used as a hard filter
+    rather than a candidate generator. Returns an empty set when any token has
+    no postings or ``tokens`` is empty.
+    """
     if not tokens:
         return set()
     candidates: set[str] | None = None
+    # Rare-first ordering keeps the running intersection small.
     for token in sorted(tokens, key=lambda token: len(index.category_token_postings.get(token, ()))):
         postings = index.category_token_postings.get(token)
         if not postings:
@@ -112,14 +158,29 @@ def _score(
     dense_map: dict[str, float] | None = None,
     tree=None,
 ) -> float:
+    """Compute the hybrid heuristic score for one product (ASIN).
+
+    Aggregates weighted, independent signals into a single number (higher is
+    better): exact-phrase hits (the dominant signal), category, material/
+    color, budget, title/corpus token overlap, profile-tag affinity, rating
+    and popularity priors, dense-route similarity, and the tree depth bonus.
+    ``query_tokens`` are category tokens; ``constraint_tokens`` are the wider
+    disclosed words. Optional routes (``dense_map``, ``tree``) simply
+    contribute nothing when absent, so the core path stays deterministic.
+    """
     score = 0.0
     product_phrases = index.product_phrases[asin]
+    # Active phrases are the strongest signal: the simulator discloses them
+    # verbatim, so an exact phrase match is near-conclusive.
     for phrase in state.active_phrases:
         if phrase in product_phrases:
             score += W_PHRASE
+    # Superseded phrases are still disclosed but were superseded by later
+    # constraints, so they earn a smaller reward.
     for phrase in state.superseded:
         if phrase in product_phrases:
             score += W_SUPERSEDED
+    # Material/color matches reward each shared slot word (disclosed earlier).
     if state.materials & index.material_sets[asin]:
         score += W_MAT * len(state.materials & index.material_sets[asin])
     if state.colors & index.color_sets[asin]:
@@ -127,15 +188,20 @@ def _score(
     if state.budget is not None:
         score += _budget_score(index.prices[asin], state.budget)
     if state.category:
+        # Normalize whitespace so "men  belt" == "men belt" for exact matching.
         coarse_key = " ".join(state.category.lower().split())
         if index.category_coarse_key.get(asin) == coarse_key:
             score += W_CAT
         else:
+            # Fallback: reward partial category-token overlap proportionally,
+            # and a raw substring hit as a weaker secondary signal.
             if query_tokens:
                 matched = query_tokens & index.category_tokens[asin]
                 score += W_CAT * 0.5 * (len(matched) / len(query_tokens))
             if state.category.lower() in index.category_lower[asin]:
                 score += W_CAT_SUBSTR
+    # Title overlap of disclosed constraint words, capped to avoid one
+    # keyword-spam title dominating the score.
     overlap = constraint_tokens & index.title_tokens[asin]
     score += W_TITLE * min(len(overlap), 8)
     cat_overlap = query_tokens & index.title_tokens[asin]
@@ -150,12 +216,18 @@ def _score(
         if tag and tag.lower() in index.corpus[asin].lower():
             score += W_TAG
     rating, rating_number = index.ratings[asin]
+    # Rating prior is capped at 5.0 so it cannot overpower the constraint
+    # signals; popularity uses log1p so a few mega-popular items don't drown
+    # everything else, and is capped at 9.5 for the same reason.
     if rating is not None:
         score += W_RATING * min(rating, 5.0)
     if rating_number:
         score += W_POP * min(9.5, math.log1p(rating_number))
+    # Style consistency is a full-or-nothing bonus: matches the user's rating
+    # tendency if one is disclosed, otherwise it stays off.
     if _style_consistency(rating, state.user_profile):
         score += W_STYLE
+    # Dense-route cosine similarity, applied only when a dense_map was built.
     if dense_map is not None:
         score += W_TFIDF * dense_map.get(asin, 0.0)
     # Binary-search thinking: deeper chain matches pin down exponentially
@@ -174,13 +246,17 @@ def retrieve(
     llm=None,
     tree=None,
 ) -> tuple[list[str], dict, int]:
-    """Returns (ranked asins, usage, pool size).
+    """Rank candidate products and return (ranked asins, usage, pool size).
 
-    The optional LLM reranks the top-20 only when the tree-first route is
-    NOT converged: if the product-property tree alone pins the pool to a
-    small set, the deterministic ranking is kept and zero tokens are spent
-    ("tree when possible, LLM only when the tree is not enough"). Failures
-    fall back to heuristic order."""
+    Builds the candidate pool in route order — exact-phrase conjunction with
+    cascade relaxation (R1), category/material/color/budget candidates (R2/R3),
+    then a hard coarse-category filter — and ranks with the heuristic scorer.
+
+    The optional LLM reranks only the top-20 and only when the tree-first
+    route is NOT converged: if the product-property tree alone pins the pool
+    to a small set, the deterministic ranking is kept and zero tokens are
+    spent ("tree when possible, LLM only when the tree is not enough").
+    Failures (dense/LLM exceptions) fall back to heuristic order."""
     active = [phrase for phrase in state.active_phrases if phrase in index.phrase_postings]
     query_tokens = _query_category_tokens(state.category)
     constraint_tokens = _constraint_tokens(state)
@@ -188,13 +264,17 @@ def retrieve(
     # ---- R1: exact-phrase conjunction with cascade relaxation ----
     pool: set[str] | None = None
     if active:
+        # Intersect the rarest phrases first so the running set stays small.
         active_sorted = sorted(active, key=lambda phrase: len(index.phrase_postings[phrase]))
+        # Cascade: try the full conjunction first, then drop constraints from
+        # the end (weakest/rarest) until a non-empty intersection is found.
         for size in range(len(active_sorted), 0, -1):
             for combo in combinations(active_sorted, size):
                 intersection: set[str] | None = None
                 for phrase in combo:
                     postings = index.phrase_postings[phrase]
                     intersection = set(postings) if intersection is None else (intersection & postings)
+                    # Short-circuit: an empty intersection can never recover.
                     if not intersection:
                         break
                 if intersection:
@@ -205,6 +285,9 @@ def retrieve(
 
     # ---- R2/R3: extend with category and synthetic-signal candidates ----
     if pool is None or len(pool) < top_k:
+        # Union (not intersect) the synthetic signals here: the phrase
+        # conjunction is too strict alone, so any material/color/budget hit
+        # widens the pool before the hard category filter tightens it again.
         category_candidates = _category_candidates(index, query_tokens)
         if pool is None:
             pool = set(category_candidates)
@@ -217,7 +300,9 @@ def retrieve(
             for color in state.colors:
                 pool |= index.color_postings.get(color, set())
         if state.budget is not None:
+            # Every priced item is a budget candidate; closeness is scored later.
             pool |= set(index.priced_asins)
+        # Last-resort fallback: the entire catalog, ranked heuristically.
         if not pool:
             pool = set(index.products)
 
@@ -225,25 +310,34 @@ def retrieve(
     # target's own last-two category parts verbatim, so exact-coarse matching
     # is a tight and always-safe filter; token intersection is the fallback.
     if pool and len(pool) > top_k:
+        # Normalize whitespace again so the coarse key matches the index.
         coarse_key = " ".join(state.category.lower().split()) if state.category else ""
         coarse_set = index.category_coarse_postings.get(coarse_key, set())
         if coarse_set:
+            # Apply the exact coarse filter only when it leaves a non-empty
+            # pool; an empty intersection means the constraint is too strict.
             filtered = pool & coarse_set
             if filtered:
                 pool = filtered
         elif query_tokens:
+            # Fallback: tighten by full category-token intersection instead.
             filtered = pool & _category_intersection(index, query_tokens)
             if filtered:
                 pool = filtered
 
     # ---- dense route: TF-IDF similarity when the pool stays large ----
     dense_map: dict[str, float] | None = None
+    # Dense only helps break ties in large pools; skip it for small pools or
+    # when there is too little history, and never let an exception abort the
+    # deterministic fallback.
     if dense is not None and len(pool) > DENSE_MIN_POOL and len(state.history) >= DENSE_MIN_HISTORY:
         try:
             dense_map = dict(dense.query_scores(" ".join(state.history), list(pool)))
         except Exception:
             dense_map = None
 
+    # Sort by score, then by rating_number as a deterministic tiebreak, both
+    # descending (higher is better).
     ranked = sorted(
         pool,
         key=lambda asin: (
@@ -274,6 +368,8 @@ def retrieve(
         candidates = []
         for asin in top_n:
             product = index.products[asin]
+            # Normalize the heterogeneous "features" field (dict, list, or
+            # absent) into a short, string-only list for the LLM prompt.
             features = product.get("features")
             if isinstance(features, dict):
                 feature_list = [f"{key}: {item}" for key, item in features.items()][:3]
@@ -289,11 +385,20 @@ def retrieve(
             })
         ordered, usage = llm.rerank("\n".join(state.history), candidates)
         if ordered:
+            # Put LLM-preferred items first, then append the remaining ranked
+            # items (deduplicated) so the final list stays stable in length.
             ranked = ordered + [asin for asin in ranked if asin not in ordered]
     return ranked[:top_k], usage, len(pool)
 
 
 def _plural_variants(keyword: str) -> set[str]:
+    """Generate a small set of likely plural forms for a keyword.
+
+    Covers the common English rules (default -s/-es, -y→-ies, -f→-ves,
+    -fe→-ves) while always keeping the singular form so singular matches
+    still succeed. Variants are used for substring matching over the category
+    path, so a broad but cheap approximation is preferable to exactness.
+    """
     variants = {keyword, keyword + "s", keyword + "es"}
     if keyword.endswith("y"):
         variants.add(keyword[:-1] + "ies")
@@ -320,6 +425,9 @@ def _freeform_rank(query, index: CatalogIndex, dense, tree=None):
     category_variants: dict[str, set[str]] = {}
     tree_hits: set[str] = set()
     if tree is not None:
+        # Tree-first: each keyword that maps to a subtree contributes that
+        # subtree's products directly; unmatched keywords fall through to the
+        # token-posting fallback below.
         for keyword in query.keywords:
             products = tree.subtree_for_keyword(keyword)
             if products:
@@ -333,6 +441,8 @@ def _freeform_rank(query, index: CatalogIndex, dense, tree=None):
         variants = _plural_variants(keyword)
         variant_postings: set[str] = set()
         for variant in variants:
+            # Prefer the specific-token postings (category path) and fall back
+            # to the general token postings when the specific map lacks the key.
             postings = index.category_specific_token_postings.get(variant)
             if postings is None:
                 postings = index.category_token_postings.get(variant)
@@ -353,17 +463,22 @@ def _freeform_rank(query, index: CatalogIndex, dense, tree=None):
     ).strip()
     if dense is not None and query_text and pool and len(pool) > TREE_DENSE_SKIP:
         if len(pool) > 300:
+            # Huge pool: keep only the top-300 dense hits and union them in.
             sims = dense.query_scores(query_text, list(pool))
             top = sorted(sims, key=lambda item: -item[1])[:300]
             dense_map = dict(top)
             pool |= dense_map.keys()
         else:
+            # Moderate pool: score every candidate but keep the pool intact.
             sims = dense.query_scores(query_text, list(pool))
             dense_map = dict(sims)
     if not pool:
         pool = set(index.products)
 
+    # Whole-word regexes (escaped) for exact keyword matching in free text.
     patterns = {keyword: re.compile(rf"\b{re.escape(keyword)}\b") for keyword in query.keywords}
+    # Precompute plural variants once, but only if the index exposes corpus
+    # tokens (older indexes may not, in which case full-text regex is used).
     keyword_variants = {
         kw: _plural_variants(kw) for kw in query.keywords
     } if hasattr(index, "corpus_tokens") else {}
@@ -371,6 +486,7 @@ def _freeform_rank(query, index: CatalogIndex, dense, tree=None):
     budget = query.budget
 
     def score(asin: str) -> float:
+        """Hybrid free-form score for one product (higher is better)."""
         value = 35.0 * dense_map.get(asin, 0.0)
         corpus_tokens = index.corpus_tokens.get(asin) if hasattr(index, "corpus_tokens") else None
         title_tokens = index.title_tokens[asin]
@@ -402,6 +518,8 @@ def _freeform_rank(query, index: CatalogIndex, dense, tree=None):
         if budget is not None:
             price = index.prices[asin]
             if price is not None:
+                # Over-budget by more than 35% is actively penalized; within
+                # range, closeness to the budget earns a proportional bonus.
                 if price > budget * 1.35:
                     value -= 30.0
                 else:
@@ -488,14 +606,20 @@ def freeform_retrieve_with_pool(query, index: CatalogIndex, dense, top_k: int = 
     """freeform_retrieve + (top-scored pool sample, real pool size) for
     facet guidance."""
     pool, score = _freeform_rank(query, index, dense, tree=tree)
+    # Small pool: sort directly and return both the top_k answers and a wider
+    # facet-guidance sample, plus the true pool size.
     if len(pool) <= pool_limit * 50:
         ranked = sorted(pool, key=score, reverse=True)
         return ranked[:top_k], ranked[:pool_limit], len(pool)
+    # Huge pool: cheaply pre-filter before scoring so we never score the
+    # whole catalog with the expensive closure.
     try:
         cheap = getattr(score, "_cheap_candidates", None)
     except AttributeError:
         cheap = None
     cands = [a for a in pool if cheap(a)] if cheap is not None else list(pool)
+    # Guard: if the pre-filter dropped everything (shouldn't happen), fall
+    # back to the full pool rather than returning nothing.
     if not cands:
         cands = list(pool)
     import heapq

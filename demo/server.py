@@ -25,6 +25,8 @@ import uuid
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
+# Repo root (one level above demo/) so the in-tree packages (agent_lib,
+# starter, evaluator) import without an install step or editable install.
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
@@ -45,6 +47,8 @@ from agent_lib.state import PLANS  # noqa: E402
 from agent_lib.retrieve import freeform_retrieve_with_pool  # noqa: E402
 from agent_lib.tree import ProductTree  # noqa: E402
 
+# The organizer kit (evaluator + simulator) is optional; degrade to standalone
+# chat mode with sensible defaults when it is not importable.
 try:
     from evaluator.local_evaluator import (  # noqa: E402
         MAX_TURNS,
@@ -64,15 +68,25 @@ except Exception:
     TOP_K = 10
 
     def load_jsonl(path):  # type: ignore[misc]
+        """Read newline-delimited JSON records (standalone fallback).
+
+        Reimplements the evaluator helper locally so the demo can still load
+        samples when the organizer kit is absent.
+        """
         import json as _json
         from pathlib import Path as _Path
 
         return [_json.loads(line) for line in _Path(path).open(encoding="utf-8") if line.strip()]
 from starter.agent import Agent  # noqa: E402
 
+# Dataset locations. catalog.jsonl is the full 50k-product index; public_set.jsonl
+# holds the 200 official public evaluation sessions (ground truth included).
 CATALOG = ROOT / "data" / "catalog.jsonl"
 PUBLIC = ROOT / "data" / "public_set.jsonl"
 
+# Process-wide singletons, populated once in main() and then shared read-mostly
+# across every HTTP request. AGENT carries the index/dense/tree/LLM components;
+# SESSIONS maps session ids to live DemoSession/ChatSession objects.
 AGENT: Agent | None = None
 PRODUCTS: dict[str, dict] = {}
 CATEGORIES: dict[str, list[str]] = {}
@@ -82,7 +96,22 @@ SESSIONS: dict[str, dict] = {}
 
 # ---------------------------------------------------------------- session logic
 class DemoSession:
+    """One replay of a public evaluation sample with the official simulator.
+
+    The server plays the *customer* using the evaluator's own reply policy
+    (``customer_reply`` / ``initial_message``), so each demo turn is
+    semantically identical to one step of ``evaluator.local_evaluator``. The
+    ground-truth ``parent_asin`` is tracked so the UI can show whether/when the
+    agent "hit" (ranked it inside Top-K).
+    """
+
     def __init__(self, agent: Agent, sample: dict, products: dict, categories: dict) -> None:
+        """Initialize the demo session and seed the first simulated message.
+
+        Side effects: assigns a fresh session id, materializes the hidden
+        intent card / behavior script, resets the agent for this session, and
+        computes the opening customer message via the evaluator's own policy.
+        """
         self.sid = uuid.uuid4().hex
         self.sample = sample
         self.agent = agent
@@ -90,10 +119,16 @@ class DemoSession:
         self.categories = categories
         self.world: dict[str, dict] = {}  # asin -> {x, y} entity state
         self.target = str(sample["ground_truth"]["parent_asin"])
+        # Recover the fields the evaluator hides from the agent (the intent card
+        # and customer behavior script); merge them into ``effective`` so the
+        # simulator can drive the conversation without leaking ground truth into
+        # what the agent actually sees.
         self.card, self.behavior = materialize_hidden_fields(sample, products)
         self.effective = {**sample, "intent_card": self.card, "behavior": self.behavior}
-        self.disclosed: set[str] = set()
-        self.boundary_used = False
+        self.disclosed: set[str] = set()  # constraints already revealed to the agent
+        self.boundary_used = False        # whether the boundary reply has fired yet
+        # Every scenario type except "intent_override" has its override baked in
+        # from the start; only intent_override needs a later mid-session flip.
         self.override_applied = sample["scenario_type"] != "intent_override"
         self.turn = 0
         self.done = False
@@ -109,19 +144,37 @@ class DemoSession:
 
 
 class ChatSession:
+    """One free-form chat conversation.
+
+    The visitor types customer messages directly (no simulator). A persistent
+    ``GuideState`` accumulates slot constraints and drives the convergent
+    guidance engine; ``messages`` keeps the raw transcript for LLM reranking.
+    """
+
     def __init__(self, agent: Agent) -> None:
+        """Initialize a chat session with a fresh GuideState and reset the agent."""
         self.sid = uuid.uuid4().hex
         self.agent = agent
         self.turn = 0
         self.guide = GuideState()
         self.messages: list[str] = []
         self.world: dict[str, dict] = {}  # asin -> {x, y} entity state
+        # Empty profile: chat has no ground-truth customer profile to seed.
         self.agent.reset(self.sid, {})
 
 
 def product_card(asin: str) -> dict:
+    """Render a catalog record as a compact, UI-safe product card.
+
+    Normalizes ``features`` (which may be a dict or a list depending on source)
+    into at most four printable strings and coerces every field to a
+    JSON-friendly scalar/str. Unknown ASINs yield an empty-but-well-shaped card
+    rather than raising, so the UI can always render a recommendation list.
+    """
     product = PRODUCTS.get(asin, {})
     features = product.get("features") or []
+    # Features arrive as either a name→value dict or a plain list; flatten both
+    # to strings and cap at 4 to keep cards compact.
     if isinstance(features, dict):
         feature_list = [f"{key}: {item}" for key, item in features.items()][:4]
     else:
@@ -150,6 +203,12 @@ def tree_chain_of(asin: str | None) -> dict | None:
 
 
 def state_view(session_id: str, parsed) -> dict:
+    """Snapshot the agent's internal state for the inspector panel.
+
+    Returns a JSON-safe dict of the session state plus the parsed view of the
+    current message. Sets are sorted so the panel renders deterministically and
+    diffs cleanly between turns.
+    """
     state = AGENT._sessions[session_id]
     return {
         "intent": state.intent,
@@ -174,6 +233,14 @@ def state_view(session_id: str, parsed) -> dict:
 
 
 def demo_turn(session: DemoSession, body: dict) -> dict:
+    """Advance one demo session turn and return the full UI payload.
+
+    Steps: ask the agent to respond to the current (simulated) customer
+    message, score the ground-truth hit, then advance the simulator one step to
+    produce the next customer message. Mutates ``session`` in place (turn, hit
+    flags, next message, world); the returned dict is the complete serializable
+    view the frontend renders.
+    """
     user_message = body.get("user_message") or session.next_message
     session.turn += 1
     turn = session.turn
@@ -183,6 +250,8 @@ def demo_turn(session: DemoSession, body: dict) -> dict:
         pass
     response = AGENT.respond(session.sid, user_message, turn, TOP_K)
     ranked = [item["parent_asin"] for item in response.get("recommendations", [])]
+    # A "hit" is exactly the evaluator's contract: the ground-truth ASIN appears
+    # anywhere in the agent's Top-K. Record the turn and rank for the UI.
     if session.override_applied and session.target in ranked[:TOP_K]:
         session.hit = True
         session.hit_turn = turn
@@ -192,6 +261,9 @@ def demo_turn(session: DemoSession, body: dict) -> dict:
         session.done = True
 
     if not session.done:
+        # Only "intent_override" scenarios carry a pending override; when its
+        # scripted turn arrives, flip the customer's preference and disclose the
+        # new value so the agent (and the next reply) sees it.
         override = session.effective.get("behavior", {}).get("override") or {}
         if not session.override_applied and turn + 1 == int(override.get("turn", 3)):
             session.override_applied = True
@@ -207,6 +279,7 @@ def demo_turn(session: DemoSession, body: dict) -> dict:
         session.next_message = None
 
     cards = [product_card(asin) for asin in ranked[:TOP_K]]
+    # Rank within Top-K only; None means the target never entered Top-K.
     target_rank = ranked.index(session.target) + 1 if session.target in ranked[:TOP_K] else None
     # unified convergence card: the hit product rendered as a product page
     # (same shape as chat mode) so the frontend uses one rendering branch
@@ -253,6 +326,11 @@ def demo_turn(session: DemoSession, body: dict) -> dict:
 
 
 def _converge_reason(guide: GuideState, pool_size: int, clamped: bool) -> str:
+    """Human-readable explanation of why the guidance engine converged.
+
+    Mirrors the decision branches in ``chat_turn`` so the trace panel can show
+    *why* a final pick happened, not just that it did.
+    """
     if clamped:
         return "turn clamp (forced from turn 9)"
     if guide.converged:
@@ -266,6 +344,8 @@ def _converge_reason(guide: GuideState, pool_size: int, clamped: bool) -> str:
     return "no useful facet left, converge"
 
 
+# Golden angle (radians) for phyllotaxis: each alive entity is placed at
+# rank * GOLDEN_ANGLE, spacing the spiral evenly without overlapping rays.
 GOLDEN_ANGLE = 2.399963229728653
 
 
@@ -277,9 +357,14 @@ def build_world(world_state: dict, alive_ordered: list[str], final_asin: str | N
     keep identity and visibly converge."""
     import math
 
+    # Cap at 200 living entities so the swarm stays readable and the client
+    # payload stays bounded even for large union pools.
     alive = alive_ordered[:200]
     alive_set = set(alive)
     for rank, asin in enumerate(alive):
+        # rank 1 sits nearest the center; sqrt pushes higher ranks outward
+        # (with a denominator guard against a single-item pool) while the
+        # golden angle spaces them around the spiral.
         radius = 0.06 + 0.40 * math.sqrt(rank / max(len(alive) - 1, 1))
         angle = rank * GOLDEN_ANGLE
         world_state[asin] = {
@@ -287,14 +372,20 @@ def build_world(world_state: dict, alive_ordered: list[str], final_asin: str | N
             "y": 0.5 + radius * math.sin(angle),
             "alive": True,
         }
+    # Intentionally a no-op: the guard mirrors the upstream builder's contract
+    # but its body is empty, so alive entities keep the coordinates just set.
     for info in world_state.values():
         if info["x"] is not None and info["alive"] and not info.get("_keep"):
             pass
+    # Anything that fell out of the alive set is faded in place (keeps identity
+    # and position so the UI can show the narrowing without jerky jumps).
     for asin, info in world_state.items():
         if asin not in alive_set:
             info["alive"] = False
     # cap the graveyard so the world stays readable
     if len(world_state) > 600:
+        # Discard the oldest non-alive entities beyond the cap; they are no
+        # longer part of the narrowing story.
         for asin in [a for a, info in world_state.items() if not info["alive"]][:len(world_state) - 600]:
             del world_state[asin]
     entities = []
@@ -317,6 +408,13 @@ def build_world(world_state: dict, alive_ordered: list[str], final_asin: str | N
 
 def chat_trace(turn: int, parsed, guide: GuideState, pool_size: int, converged: bool,
                clamped: bool, ranked: list[str]) -> dict:
+    """Build the step-by-step trace shown in the chat inspector panel.
+
+    Produces an ordered list of labeled pipeline stages (parse → route →
+    accumulate → retrieve → rank → converge) with short human-readable detail
+    strings; appends a "Final pick" step when the turn converged with a
+    non-empty ranking.
+    """
     steps = [
         {"name": "Parse message", "kind": "input",
          "detail": (((", ".join(sorted(parsed.phrases))[:36]) or "no template phrase")
@@ -338,6 +436,11 @@ def chat_trace(turn: int, parsed, guide: GuideState, pool_size: int, converged: 
 
 
 def demo_trace(turn: int, parsed, state: dict, hit: bool) -> dict:
+    """Build the step-by-step trace for the demo inspector panel.
+
+    Same shape as ``chat_trace`` but reports the ground-truth-oriented demo
+    signals: the routed intent and whether the target entered Top-K.
+    """
     steps = [
         {"name": "Parse message", "kind": "input",
          "detail": (((", ".join(sorted(parsed.phrases))[:36]) or "no template phrase")
@@ -370,6 +473,15 @@ def _light_agent_state(session: ChatSession, parsed, user_message: str) -> None:
 
 
 def chat_turn(session: ChatSession, body: dict) -> dict:
+    """Advance one free-form chat turn and return the full UI payload.
+
+    Runs the whole offline pipeline: parse the message, update the guide
+    state, retrieve via the free-form multi-route engine, optionally LLM-rerank
+    the top candidates, decide convergence, and assemble the serializable
+    response (recommendations, funnel, signals, world, trace). Mutates
+    ``session`` in place. Optional LLM/dense failures degrade to the heuristic
+    ranking instead of crashing the turn.
+    """
     user_message = str(body.get("user_message") or "").strip()
     session.turn += 1
     session.messages.append(user_message)
@@ -476,6 +588,8 @@ def chat_turn(session: ChatSession, body: dict) -> dict:
                     print("[server] LLM failing repeatedly — disabling (offline fallback)", flush=True)
                     AGENT.llm = None
             if ordered:
+                # Keep the LLM's ordering up front, then append any candidates it
+                # dropped so the list stays a permutation of the original top-15.
                 ranked = ordered + [asin for asin in ranked if asin not in ordered]
         ranked = ranked[:TOP_K]
         # rank over the full union pool (recall quality first); the hard
@@ -581,12 +695,21 @@ def chat_turn(session: ChatSession, body: dict) -> dict:
 
 # --------------------------------------------------------------------- HTTP API
 class Handler(BaseHTTPRequestHandler):
+    """HTTP request handler for the demo UI and JSON API.
+
+    Serves the single-page UI from disk and routes ``/api/*`` and ``/mcp``
+    requests against the shared process-wide AGENT/SESSIONS state. Runs under
+    ``ThreadingHTTPServer``, so handlers may touch globals concurrently (the
+    demo tolerates this; sessions are keyed by id and never shared).
+    """
     server_version = "TechJamDemo/1.0"
 
     def log_message(self, *args) -> None:  # quiet
+        """Suppress the default per-request stderr logging."""
         pass
 
     def _json(self, payload: dict, status: int = 200) -> None:
+        """Serialize ``payload`` to UTF-8 JSON and send it with the given status."""
         data = json.dumps(payload, ensure_ascii=False).encode("utf-8")
         self.send_response(status)
         self.send_header("Content-Type", "application/json; charset=utf-8")
@@ -595,6 +718,7 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(data)
 
     def do_GET(self) -> None:
+        """Serve static UI assets (HTML, favicon) and the health endpoint."""
         if self.path in ("/", "/index.html"):
             html = (Path(__file__).parent / "index.html").read_bytes()
             self.send_response(200)
@@ -619,10 +743,13 @@ class Handler(BaseHTTPRequestHandler):
             self._json({"error": "not found"}, 404)
 
     def do_POST(self) -> None:
+        """Route JSON POSTs: new session, LLM config, MCP, and turn advances."""
         length = int(self.headers.get("Content-Length") or 0)
         try:
             body = json.loads(self.rfile.read(length).decode("utf-8")) if length else {}
         except Exception:
+            # Malformed/empty JSON degrades to an empty body; downstream routes
+            # treat missing fields as defaults rather than 500ing the client.
             body = {}
         if self.path == "/api/new":
             mode = body.get("mode", "demo")
@@ -642,6 +769,8 @@ class Handler(BaseHTTPRequestHandler):
                             "participant kit (see README)"}, 400)
                 return
             scenario = body.get("scenario")
+            # Filter to the requested scenario (None/"random" means any sample);
+            # fall back to the full set if the filter matched nothing.
             candidates = [s for s in SAMPLES if not scenario or scenario == "random"
                           or s["scenario_type"] == scenario]
             sample = random.choice(candidates or SAMPLES)
@@ -705,6 +834,8 @@ class Handler(BaseHTTPRequestHandler):
             if session is None:
                 self._json({"error": "unknown session"}, 404)
                 return
+            # Dispatch on session type: demo replays the simulator, chat is
+            # free-form — both return the same unified payload shape.
             result = demo_turn(session, body) if isinstance(session, DemoSession) else chat_turn(session, body)
             self._json(result)
         else:
@@ -746,6 +877,12 @@ def build_dense(products: dict):
 
 
 def main() -> None:
+    """Boot the demo server: build the index/dense/tree, load samples, serve HTTP.
+
+    Populates the process-wide singletons (AGENT, PRODUCTS, CATEGORIES,
+    SAMPLES), wires the optional local DeepSeek LLM reranker, and blocks on the
+    threaded HTTP server until Ctrl-C.
+    """
     global AGENT, PRODUCTS, CATEGORIES, SAMPLES
     parser = argparse.ArgumentParser()
     parser.add_argument("--port", type=int, default=8090)
@@ -757,16 +894,22 @@ def main() -> None:
     AGENT = Agent(args.catalog)
     AGENT.dense = build_dense(AGENT.index.products)
     if AGENT.llm is None:
+        # Optional local DeepSeek reranker from env/credentials; stays None (and
+        # the server stays fully offline) when no credentials are configured.
         AGENT.llm = LLMReranker.from_local_defaults()
         if AGENT.llm is not None:
             print(f"[server] LLM: local DeepSeek default ({AGENT.llm.model})", flush=True)
     if AGENT.llm is not None and not validate_llm(AGENT.llm):
         AGENT.llm = None
+    # Dynamic attrs hold the demo-only extras (LLM failure counter, property
+    # tree) without touching the competition Agent class surface.
     setattr(AGENT, "_llm_fails", 0)
     setattr(AGENT, "tree", ProductTree(AGENT.index))
     PRODUCTS = AGENT.index.products
+    # Per-ASIN coarse category list for the simulator's coarse_category() call.
     CATEGORIES = {asin: [str(value) for value in (product.get("categories") or [])]
                   for asin, product in PRODUCTS.items()}
+    # Samples are optional (chat mode works without the public set).
     SAMPLES = load_jsonl(args.dataset) if Path(args.dataset).exists() else []
     print(f"ready: {len(PRODUCTS)} products, {len(SAMPLES)} public sessions, "
           f"dense={type(AGENT.dense).__name__}, simulator={'on' if SIMULATOR_AVAILABLE else 'off (chat only)'}",
