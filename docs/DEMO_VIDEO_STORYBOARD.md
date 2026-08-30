@@ -42,15 +42,49 @@ speedup or a hold in the editor to land on its beat.
 
 ## Storyboard
 
+### Recommended edit order (which clip goes with which line)
+
+The 3-minute cut uses 12 of the 19 clips; the other 7 (pipeline, policy,
+scores, stress) are extras for a longer version or the docs. Clips are
+referenced by filename in `docs/manim/media/final/`; durations are the
+rendered lengths, so a clip may need a speedup or a hold in the editor.
+
+| VO line | Script beat | Clip file | Duration | Use |
+|---------|-------------|-----------|----------|-----|
+| 1 | "So here's the setup." | `EntroShopOpen_Cloud.mp4` | 2.5s | fade in the swarm |
+| 2 | "...one product we have to find." | `EntroShopOpen_Target.mp4` | 2.0s | target lights red |
+| 3 | "...we get ten turns to do it." | `EntroShopOpen_Rings.mp4` | 5.2s | ten inward rings |
+| 4 | "...asks the right questions and converges." | `EntroShopOpen_Collapse.mp4` | 3.0s | swarm sweeps in |
+| 5 | "200 out of 200 ... zero tokens offline." | `EntroShopOpen_Score.mp4` | 2.5s | score punchline |
+| 25 | "...an n-ary tree of category properties." | `EntroShopTree_Grow.mp4` | 5.0s | tree grows |
+| 26–29 | "...one chain ... breadcrumb ... why." | `EntroShopTree_Breadcrumb.mp4` | 3.2s | breadcrumb + lookup |
+| 27 | "...Category lookups are O(1)..." | `EntroShopTree_Lookup.mp4` | 2.2s | (optional) lookup flash |
+| 37–38 | "So, the numbers. Hit rate 100%..." | `EntroShopNumbers_Build.mp4` | 2.5s | table builds |
+| 39–41 | "...TechnicalScore 0.9053... repo..." | `EntroShopNumbers_Highlight.mp4` | 1.5s | winner column + close |
+
+Extras (longer cut / docs):
+
+| Clip file | Duration | Covers |
+|-----------|----------|--------|
+| `EntroShopPipeline_Build.mp4` | 3.1s | four-stage loop (docs/02) |
+| `EntroShopPipeline_Loop.mp4` | 4.0s | one turn, 0 tokens (docs/02) |
+| `EntroShopPolicy_Curve.mp4` | 3.8s | pool shrinks per turn (docs/02) |
+| `EntroShopPolicy_Wall.mp4` | 2.2s | 10-turn budget wall (docs/02) |
+| `EntroShopMCP_Build.mp4` | 5.2s | core → four tools (docs/03) |
+| `EntroShopMCP_Hosts.mp4` | 3.5s | any MCP host line (docs/03) |
+| `EntroShopScores.mp4` | 6.7s | BM25 vs EntroShop bars (docs/05) |
+| `EntroShopStress_Grid.mp4` | 2.3s | 300 sessions fill (STRESS_TEST) |
+| `EntroShopStress_Banner.mp4` | 3.5s | 300/300 banner (STRESS_TEST) |
+
 ### [0:00–0:20] Open — Manim clip: convergence
 
 | # | Time | VO (one line per row) | Screen |
 |---|------|------------------------|--------|
-| 1 | 0:00 | So here's the setup. | Manim: 50,000 dim points fill the frame |
-| 2 | 0:03 | Somewhere in a 50,000-item catalog there's one product we have to find. | Manim: one point brightens, others dim |
-| 3 | 0:08 | A simulated customer answers our questions, and we get ten turns to do it. | Overlay: "1 target. 10 turns." |
-| 4 | 0:12 | So we built a little agent that asks the right questions and converges. | Manim: points sweep inward in waves |
-| 5 | 0:15 | 200 out of 200 on the public set, 1.59 turns average, zero tokens offline. | Text pops: "200/200 · 1.59 turns · 0 tokens" |
+| 1 | 0:00 | So here's the setup. | clip EntroShopOpen_Cloud: 50,000 dim points fill the frame |
+| 2 | 0:03 | Somewhere in a 50,000-item catalog there's one product we have to find. | clip EntroShopOpen_Target: one point brightens red |
+| 3 | 0:08 | A simulated customer answers our questions, and we get ten turns to do it. | clip EntroShopOpen_Rings: ten inward rings; overlay "1 target. 10 turns." |
+| 4 | 0:12 | So we built a little agent that asks the right questions and converges. | clip EntroShopOpen_Collapse: swarm sweeps into the target |
+| 5 | 0:15 | 200 out of 200 on the public set, 1.59 turns average, zero tokens offline. | clip EntroShopOpen_Score: "200/200 · 1.59 turns · 0 tokens" |
 | 6 | 0:18 | Let's go ahead and walk through it. | Cut to screen recording |
 
 ### [0:20–0:55] Scene 1 — the simulator hands you the data (screen recording)
@@ -85,11 +119,11 @@ speedup or a hold in the editor to land on its beat.
 
 | # | Time | VO | Screen |
 |---|------|----|--------|
-| 25 | 1:45 | Under the hood there's an n-ary tree of category properties, coarse to fine. | Manim: tree grows top-down |
-| 26 | 1:51 | Every product maps to exactly one chain. | Manim: one leaf highlighted per branch |
-| 27 | 1:56 | Category lookups are O(1), and once the tree pins the pool down to a small set, we skip the LLM entirely. | Manim: lookup path flashes |
-| 28 | 2:03 | Zero tokens, and that's most turns. | Counter: "0 tokens" |
-| 29 | 2:07 | You'll also notice the final pick shows its chain as a breadcrumb, so you can see exactly why we chose it. | Breadcrumb highlights root→leaf |
+| 25 | 1:45 | Under the hood there's an n-ary tree of category properties, coarse to fine. | clip EntroShopTree_Grow: tree grows top-down |
+| 26 | 1:51 | Every product maps to exactly one chain. | clip EntroShopTree_Breadcrumb: root→leaf chain highlights |
+| 27 | 1:56 | Category lookups are O(1), and once the tree pins the pool down to a small set, we skip the LLM entirely. | clip EntroShopTree_Lookup: lookup dot races the chain |
+| 28 | 2:03 | Zero tokens, and that's most turns. | (optional) Counter: "0 tokens" |
+| 29 | 2:07 | You'll also notice the final pick shows its chain as a breadcrumb, so you can see exactly why we chose it. | hold on EntroShopTree_Breadcrumb end frame |
 
 ### [2:15–2:50] Scene 4 — MCP: plug it into anything (screen recording)
 
@@ -107,11 +141,11 @@ speedup or a hold in the editor to land on its beat.
 
 | # | Time | VO | Screen |
 |---|------|----|--------|
-| 37 | 2:50 | So, the numbers. | Manim: table builds row by row |
-| 38 | 2:53 | Hit rate 100%. MRR 0.723. MTTC 1.59 versus 9.81 baseline. | Rows highlight |
-| 39 | 2:57 | TechnicalScore 0.9053 versus 0.107. | Final row |
-| 40 | 2:59 | Offline zero tokens, and if judging runs without network, the fallback just works. | "0 tokens" badge |
-| 41 | 3:00 | Repo's up at Entropino-ai/EntroShop. Go ahead and try it. | Fade to repo URL |
+| 37 | 2:50 | So, the numbers. | clip EntroShopNumbers_Build: table builds row by row |
+| 38 | 2:53 | Hit rate 100%. MRR 0.723. MTTC 1.59 versus 9.81 baseline. | rows land as the table builds |
+| 39 | 2:57 | TechnicalScore 0.9053 versus 0.107. | clip EntroShopNumbers_Highlight: winner column turns green |
+| 40 | 2:59 | Offline zero tokens, and if judging runs without network, the fallback just works. | "0 tokens" badge (text overlay) |
+| 41 | 3:00 | Repo's up at Entropino-ai/EntroShop. Go ahead and try it. | fade to repo URL |
 
 ---
 
