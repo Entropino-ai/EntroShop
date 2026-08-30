@@ -7,8 +7,8 @@
 | Hit Rate@10 | 0.125 | **1.000** |
 | MRR | 0.068 | **0.724** |
 | MTTC (mean turns to conversion) | 9.81 | **1.59** |
-| Efficiency | 0.119 | 0.934 |
-| TechnicalScore | 0.107 | **0.906** |
+| Efficiency | 0.119 | 0.9415 |
+| TechnicalScore | 0.107 | **0.9055** |
 
 ## Scenario breakdown (all Hit@10 = 1.000)
 
@@ -49,8 +49,8 @@ simulator scenarios hit.
 
 ## Synthetic stress (see [STRESS_TEST.md](STRESS_TEST.md))
 
-300 harsh sessions (40% generic-feature products): Hit@10 0.933, MRR 0.649,
-MTTC 2.81, TS 0.825. All 20 misses are family-ambiguous sessions at the
+300 harsh sessions (40% generic-feature products): Hit@10 0.933, MRR 0.6474,
+MTTC 2.807, TS 0.8248. All 20 misses are family-ambiguous sessions at the
 disclosed-information bound; zero retrieval bugs (`not-in-pool = 0`).
 
 ## Online mode (LLM rerank) vs offline fallback

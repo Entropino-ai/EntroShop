@@ -15,8 +15,8 @@
 | **Hit Rate@10** | 0.125 | **1.000** 🎯 |
 | **MRR** | 0.068 | **0.724** |
 | **MTTC (mean turns to conversion)** | 9.81 | **1.59** |
-| **Efficiency** | 0.119 | **0.934** |
-| **TechnicalScore** | 0.107 | **0.906** |
+| **Efficiency** | 0.119 | **0.9415** |
+| **TechnicalScore** | 0.107 | **0.9055** |
 
 *All 200 public sessions hit the hidden target. Recommended mode: online (LLM rerank) as the product-mode ranking and a hedge against paraphrase drift. Measured on the public set, online and offline are equivalent (TS 0.905543 vs 0.905507); the fully offline deterministic fallback (0 tokens, in-memory, no external vector DB) hits every session at zero cost.*
 
@@ -66,7 +66,7 @@ curl -L -o data/public_set.jsonl https://raw.githubusercontent.com/TechJam2026/t
 git clone https://github.com/TechJam2026/techjam-conversational-search.git ../techjam-kit
 cp -r starter agent_lib ../techjam-kit/
 cd ../techjam-kit && python3 -m evaluator.local_evaluator
-# (offline fallback) expect Hit@10 1.000, MRR 0.724, MTTC 1.59, TechnicalScore 0.906
+# (offline fallback) expect Hit@10 1.000, MRR 0.724, MTTC 1.59, TechnicalScore 0.9055
 # set TECHJAM_LLM_* to enable the recommended online rerank (better efficiency)
 
 # 3) interactive demo UI — chat works standalone with just the catalog

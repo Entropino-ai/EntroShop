@@ -117,7 +117,7 @@ smoke suite on every change.
 ## Accomplishments that we're proud of
 
 - **1.000 Hit Rate on the public set** (200/200), MTTC 1.59 vs the
-  baseline's 9.81, TechnicalScore 0.906 vs 0.107 — fully offline, **0
+  baseline's 9.81, TechnicalScore 0.9055 vs 0.107 — fully offline, **0
   tokens**, in-memory, no external vector DB.
 - **Engineering around the task's information structure**: exact matching
   for verbatim constraints, entropy for questioning, a tree for catalog

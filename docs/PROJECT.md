@@ -14,7 +14,7 @@
 
 ## Abstract
 
-Conversational commerce agents must converge to a single decision within a bounded interaction budget, yet most "chatbot-first" designs never converge and keyword search never captures intent. We present **EntroShop**, a deterministic-first conversational shopping agent over a 50,000-product clothing catalog. Three insights drive the design. *(i) The simulator discloses constraints as verbatim catalog strings*, so exact-phrase conjunction over an inverted index is the dominant retrieval signal (median conjunction size = 1). *(ii) The disclosed coarse category is the target's own last-two category parts, verbatim* — replacing loose token intersection with an exact coarse-key match collapsed the one historically ambiguous pool from 459 candidates to 9 and lifted Hit Rate from 0.995 to **1.000**. *(iii) Clarification is an information-elicitation problem* — each turn the agent asks the highest-entropy facet (color/material/price/category) with pool-derived options, decays stale slots, and enforces a hard 10-turn budget with a forced single final pick. On the official TechJam 2026 public set (200 sessions): **Hit@10 = 1.000, MRR = 0.724, MTTC = 1.59, TechnicalScore = 0.906**, versus the weak BM25 baseline (0.125 / 0.068 / 9.81 / 0.107), with **zero LLM tokens** in the offline core. Optional components — a MiniLM dense route, a failure-safe DeepSeek LLM reranker, an MCP server, and a MiroFish-style adversarial arena UI — make the system a complete product, not a metric.
+Conversational commerce agents must converge to a single decision within a bounded interaction budget, yet most "chatbot-first" designs never converge and keyword search never captures intent. We present **EntroShop**, a deterministic-first conversational shopping agent over a 50,000-product clothing catalog. Three insights drive the design. *(i) The simulator discloses constraints as verbatim catalog strings*, so exact-phrase conjunction over an inverted index is the dominant retrieval signal (median conjunction size = 1). *(ii) The disclosed coarse category is the target's own last-two category parts, verbatim* — replacing loose token intersection with an exact coarse-key match collapsed the one historically ambiguous pool from 459 candidates to 9 and lifted Hit Rate from 0.995 to **1.000**. *(iii) Clarification is an information-elicitation problem* — each turn the agent asks the highest-entropy facet (color/material/price/category) with pool-derived options, decays stale slots, and enforces a hard 10-turn budget with a forced single final pick. On the official TechJam 2026 public set (200 sessions): **Hit@10 = 1.000, MRR = 0.724, MTTC = 1.59, TechnicalScore = 0.9055**, versus the weak BM25 baseline (0.125 / 0.068 / 9.81 / 0.107), with **zero LLM tokens** in the offline core. Optional components — a MiniLM dense route, a failure-safe DeepSeek LLM reranker, an MCP server, and a MiroFish-style adversarial arena UI — make the system a complete product, not a metric.
 
 ## 1 Introduction
 
@@ -61,8 +61,8 @@ A MiniLM (`all-MiniLM-L6-v2`) dense route with cached 50k embeddings; a DeepSeek
 | Hit@10 | 0.125 | **1.000** |
 | MRR | 0.068 | **0.724** |
 | MTTC | 9.81 | **1.59** |
-| Efficiency | 0.119 | 0.934 |
-| TechnicalScore | 0.107 | **0.906** |
+| Efficiency | 0.119 | 0.9415 |
+| TechnicalScore | 0.107 | **0.9055** |
 
 **Scenario breakdown (all 1.000 Hit@10):** buying (MRR 0.749), browsing (0.626), intent_override (0.942), boundary (0.653); MTTC 1.15 / 1.26 / 3.60 / 1.60.
 
@@ -135,7 +135,7 @@ curl -L -o data/public_set.jsonl https://raw.githubusercontent.com/TechJam2026/t
 # 2) official local evaluation (our agent overlaid onto a kit clone)
 git clone https://github.com/TechJam2026/techjam-conversational-search.git ../techjam-kit
 cp -r starter agent_lib ../techjam-kit/
-cd ../techjam-kit && python3 -m evaluator.local_evaluator   # Hit@10 1.000, TS 0.906
+cd ../techjam-kit && python3 -m evaluator.local_evaluator   # Hit@10 1.000, TS 0.9055
 
 # 3) demo UI — chat standalone; Example presets need the kit on PYTHONPATH
 pip install --target vendor transformers    # optional MiniLM
@@ -215,7 +215,7 @@ information bound; the adversarial chat battery runs 23/23 without crashes.
 | Hit@10 | 0.125 | **1.000** |
 | MRR | 0.068 | **0.724** |
 | MTTC | 9.81 | **1.59** |
-| TechnicalScore | 0.107 | **0.906** |
+| TechnicalScore | 0.107 | **0.9055** |
 
 Scenario breakdown (Hit@10 = 1.000 everywhere): buying MTTC 1.15 · browsing 1.26 · intent_override 3.60 · boundary 1.60.
 

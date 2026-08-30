@@ -14,9 +14,9 @@ through the official evaluator's simulator.
 | Metric | Public set (200) | Synthetic (300, harsh) |
 |---|---|---|
 | Hit@10 | 1.000 | 0.933 |
-| MRR | 0.724 | 0.649 |
-| MTTC | 1.59 | 2.81 |
-| TechnicalScore | 0.906 | 0.825 |
+| MRR | 0.724 | 0.6474 |
+| MTTC | 1.59 | 2.807 |
+| TechnicalScore | 0.9055 | 0.8248 |
 
 **Miss classification (20/300):**
 

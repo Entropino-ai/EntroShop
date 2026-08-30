@@ -32,7 +32,7 @@ cp agent.py ../techjam-kit/starter/agent.py      # replaces the weak starter
 cp -r src ../techjam-kit/src
 cp requirements.txt ../techjam-kit/
 cd ../techjam-kit && python3 -m evaluator.local_evaluator
-# expect Hit@10 1.000, MRR 0.724, MTTC 1.59, TechnicalScore 0.906
+# expect Hit@10 1.000, MRR 0.724, MTTC 1.59, TechnicalScore 0.9055
 ```
 *The official evaluator loads `starter.agent` — the entry file must replace it.*
 

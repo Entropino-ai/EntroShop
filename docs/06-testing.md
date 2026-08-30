@@ -11,7 +11,7 @@ for every release.
 PYTHONPATH=../techjam-conversational-search python3 -m evaluator.local_evaluator
 ```
 
-Expect: Hit@10 = 1.000, TS ≥ 0.905 (drift guard), MTTC ≤ 1.6.
+Expect: Hit@10 = 1.000, TS ≥ 0.9055 (drift guard), MTTC ≤ 1.6.
 
 ### 2. Convergence battery (13 cases)
 

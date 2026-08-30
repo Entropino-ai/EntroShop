@@ -9,8 +9,8 @@ TikTok TechJam 2026 · Track 4 — Shopping Copilot: AI Conversational Search & 
 | Hit Rate@10 | 0.125 | **1.000** |
 | MRR | 0.068 | **0.724** |
 | MTTC | 9.81 | **1.59** |
-| Efficiency | 0.119 | 0.934 |
-| **TechnicalScore** | **0.107** | **0.906** |
+| Efficiency | 0.119 | 0.9415 |
+| **TechnicalScore** | **0.107** | **0.9055** |
 
 ---
 

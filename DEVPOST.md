@@ -6,7 +6,7 @@
 
 ## What it does
 
-EntroShop talks to a customer across multiple turns to find the one hidden product they have in mind, out of a 50,000-product catalog. It recommends products on every turn instead of only asking questions, so a session ends the moment the target shows up. On the official public development set (200 sessions) it scores Hit Rate@10 = 1.000, MRR = 0.724, and MTTC = 1.59 turns, raising the TechnicalScore from the BM25 baseline's 0.107 to 0.906.
+EntroShop talks to a customer across multiple turns to find the one hidden product they have in mind, out of a 50,000-product catalog. It recommends products on every turn instead of only asking questions, so a session ends the moment the target shows up. On the official public development set (200 sessions) it scores Hit Rate@10 = 1.000, MRR = 0.724, and MTTC = 1.59 turns, raising the TechnicalScore from the BM25 baseline's 0.107 to 0.9055.
 
 ## The insight
 
@@ -40,8 +40,8 @@ The same agent is exposed as an MCP server (tools: `search_products`, `product_d
 | Hit Rate@10 | 0.125 | 1.000 |
 | MRR | 0.068 | 0.724 |
 | MTTC (turns) | 9.81 | 1.59 |
-| Efficiency | 0.119 | 0.934 |
-| TechnicalScore | 0.107 | 0.906 (0.905543 online / 0.905507 offline) |
+| Efficiency | 0.119 | 0.9415 |
+| TechnicalScore | 0.107 | 0.9055 (0.905543 online / 0.905507 offline) |
 
 ## Known limitations
 

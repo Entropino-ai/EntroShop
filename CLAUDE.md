@@ -6,7 +6,7 @@ a 50k-product swarm, and converges to the one product the customer wants —
 within 10 turns. Bilingual: Chinese and English input.
 
 Official public-set results (200 sessions): **Hit@10 1.000 · MRR 0.724 · MTTC 1.59 ·
-TechnicalScore 0.906**. Offline deterministic core — 0 LLM tokens; optional
+TechnicalScore 0.9055**. Offline deterministic core — 0 LLM tokens; optional
 MiniLM dense route and DeepSeek LLM rerank (failure-safe fallbacks).
 
 ## Quick commands (run from repo root)

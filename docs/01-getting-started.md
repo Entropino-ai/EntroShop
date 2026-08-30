@@ -32,8 +32,8 @@ Expected output (public set, 200 sessions):
 | Hit Rate@10 | 1.000 |
 | MRR | 0.724 |
 | MTTC | 1.59 |
-| Efficiency | 0.934 |
-| TechnicalScore | 0.906 |
+| Efficiency | 0.9415 |
+| TechnicalScore | 0.9055 |
 
 Or run the self-contained evaluation from this repo (symlinked data):
 
