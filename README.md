@@ -53,11 +53,14 @@ The demo renders step 3 as a **MiroFish-style god-view world**: candidate produc
 
 ## Quick start
 
-**Requirements:** Python ≥3.10 (tested on 3.14); `numpy` + `scikit-learn` are
-optional (only the dense route needs them — the deterministic core is
-stdlib-only).
+**Requirements:** Python ≥3.10 (tested on 3.14). The deterministic core is
+stdlib-only; `numpy` + `scikit-learn` (see `requirements.txt`) add the dense
+route, and `transformers` is only needed for the optional MiniLM route.
 
 ```bash
+# 0) dependencies (dense route; skip if your Python already has numpy/sklearn)
+pip install -r requirements.txt
+
 # 1) data from the official participant kit (50k products + 200 public sessions)
 mkdir -p data
 curl -L -o catalog.jsonl.gz https://github.com/TechJam2026/techjam-conversational-search/releases/download/participant-kit/catalog.jsonl.gz
@@ -65,8 +68,11 @@ gzip -dk catalog.jsonl.gz && mv catalog.jsonl data/catalog.jsonl
 curl -L -o data/public_set.jsonl https://raw.githubusercontent.com/TechJam2026/techjam-conversational-search/main/data/public_set.jsonl
 
 # 2) official local evaluation (our agent overlaid onto a kit clone)
+#    NOTE: the evaluator reads data/catalog.jsonl from the kit's own data/
+#    directory, so the catalog downloaded in step 1 must be copied there too.
 git clone https://github.com/TechJam2026/techjam-conversational-search.git ../techjam-kit
 cp -r starter agent_lib ../techjam-kit/
+cp data/catalog.jsonl ../techjam-kit/data/
 cd ../techjam-kit && python3 -m evaluator.local_evaluator
 # (offline fallback) expect Hit@10 1.000, MRR 0.723, MTTC 1.59, TechnicalScore 0.9053
 # set TECHJAM_LLM_* to enable the recommended online rerank (better efficiency)
@@ -76,6 +82,8 @@ pip install --target vendor transformers    # optional MiniLM dense route
 PYTHONPATH=vendor python3 demo/server.py     # open http://127.0.0.1:8090
 # with the organizer kit (enables the Example presets):
 #   PYTHONPATH=vendor:../techjam-kit python3 demo/server.py
+# MiniLM is NOT used by default (TF-IDF keeps turns snappy); enable it with:
+#   TECHJAM_DEMO_USE_TRANSFORMER=1 PYTHONPATH=vendor python3 demo/server.py
 ```
 *The repo deliberately ships no organizer files (evaluator, data) — they come
 from the participant kit above.*

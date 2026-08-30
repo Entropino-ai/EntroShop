@@ -31,10 +31,13 @@ git clone https://github.com/TechJam2026/techjam-conversational-search.git ../te
 cp agent.py ../techjam-kit/starter/agent.py      # replaces the weak starter
 cp -r src ../techjam-kit/src
 cp requirements.txt ../techjam-kit/
+cp data/catalog.jsonl ../techjam-kit/data/       # evaluator reads kit's own data/
 cd ../techjam-kit && python3 -m evaluator.local_evaluator
-# expect Hit@10 1.000, MRR 0.724, MTTC 1.59, TechnicalScore 0.9055
+# expect Hit@10 1.000, MRR 0.723, MTTC 1.59, TechnicalScore 0.9053
 ```
-*The official evaluator loads `starter.agent` — the entry file must replace it.*
+*The official evaluator loads `starter.agent` — the entry file must replace it,
+and it reads `data/catalog.jsonl` from the kit's own `data/` directory (the
+catalog downloaded above lives in this package's `data/`, so copy it over).*
 
 ## Network & Fallback Policy
 
@@ -42,7 +45,7 @@ cd ../techjam-kit && python3 -m evaluator.local_evaluator
   product-mode ranking and a hedge against paraphrase drift on unseen splits.
 - **Offline fallback:** 0 tokens, no network, no API keys. Still correct
   (hits every session). Measured on the public set the two modes are
-  equivalent: TechnicalScore 0.905543 online vs 0.905507 offline, same
+  equivalent: TechnicalScore 0.905405 online vs 0.905305 offline, same
   Efficiency (0.9415).
 - Final scoring may disable network access: the agent then runs the offline
   fallback automatically at the measured equivalent score.

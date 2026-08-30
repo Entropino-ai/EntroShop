@@ -5,6 +5,8 @@
 - Python **3.10+** (stdlib-only core; optional routes need `transformers`).
 - The official participant kit — either a clone of
   `TechJam2026/techjam-conversational-search` or just its data files.
+- `numpy` + `scikit-learn` (see `requirements.txt`) for the dense route —
+  the deterministic core runs without them.
 
 ## 1. Get the data
 
@@ -17,11 +19,14 @@ curl -L -o data/public_set.jsonl https://raw.githubusercontent.com/TechJam2026/t
 
 ## 2. Run the official local evaluation
 
-Overlay our agent onto a kit clone (the evaluator imports `starter.agent`):
+Overlay our agent onto a kit clone (the evaluator imports `starter.agent`).
+The evaluator reads `data/catalog.jsonl` from the kit's own `data/`
+directory, so the catalog downloaded in step 1 must be copied there too:
 
 ```bash
 git clone https://github.com/TechJam2026/techjam-conversational-search.git ../techjam-kit
 cp -r starter agent_lib ../techjam-kit/
+cp data/catalog.jsonl ../techjam-kit/data/
 cd ../techjam-kit && python3 -m evaluator.local_evaluator
 ```
 
@@ -46,6 +51,8 @@ PYTHONPATH=../techjam-conversational-search python3 -m evaluator.local_evaluator
 ```bash
 pip install --target vendor transformers        # optional MiniLM dense route
 PYTHONPATH=vendor python3 demo/server.py        # http://127.0.0.1:8090
+# MiniLM is NOT used by default (TF-IDF keeps turns snappy); enable it with:
+#   TECHJAM_DEMO_USE_TRANSFORMER=1 PYTHONPATH=vendor python3 demo/server.py
 ```
 
 - **Free chat** works standalone. **Example presets** replay the simulator,

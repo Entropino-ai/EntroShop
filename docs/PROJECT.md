@@ -133,13 +133,18 @@ gzip -dk catalog.jsonl.gz && mv catalog.jsonl data/catalog.jsonl
 curl -L -o data/public_set.jsonl https://raw.githubusercontent.com/TechJam2026/techjam-conversational-search/main/data/public_set.jsonl
 
 # 2) official local evaluation (our agent overlaid onto a kit clone)
+#    NOTE: the evaluator reads data/catalog.jsonl from the kit's own data/,
+#    so the catalog downloaded in step 1 must be copied there too.
 git clone https://github.com/TechJam2026/techjam-conversational-search.git ../techjam-kit
 cp -r starter agent_lib ../techjam-kit/
+cp data/catalog.jsonl ../techjam-kit/data/
 cd ../techjam-kit && python3 -m evaluator.local_evaluator   # Hit@10 1.000, TS 0.9053
 
 # 3) demo UI — chat standalone; Example presets need the kit on PYTHONPATH
 pip install --target vendor transformers    # optional MiniLM
 PYTHONPATH=vendor python3 demo/server.py    # http://127.0.0.1:8090
+# MiniLM is NOT used by default (TF-IDF keeps turns snappy); enable with:
+#   TECHJAM_DEMO_USE_TRANSFORMER=1 PYTHONPATH=vendor python3 demo/server.py
 ```
 
 Optional LLM rerank (any OpenAI-compatible endpoint, e.g. DeepSeek):
