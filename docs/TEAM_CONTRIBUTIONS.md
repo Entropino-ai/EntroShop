@@ -43,8 +43,9 @@ Non-code work is listed where it maps to specific deliverables.
 
 ## Team members without build-window contributions
 
-- cray-xiaocheng: registered and listed as a team member; unavailable during
-  the build window due to academic commitments, no code or delivery
+- cray-xiaocheng: registered and listed as a team member; contributed
+  early-stage suggestions on project direction before the build window;
+  unavailable during the build window due to academic commitments, no code
   contributions.
 - Siuuuuean: registered and listed as a team member; unavailable during
   the build window due to academic commitments, no code or delivery
