@@ -37,11 +37,12 @@ class EntroShopSim_Reveal(Scene):
         make_bg(self)
         ttl = title(self, "the simulator hands you the data")
 
-        # Product card: title box plus three field rows.
-        card = RoundedRectangle(corner_radius=0.15, width=6.2, height=4.2,
-                                color=GREY_B).shift(LEFT * 0.6)
+        # Product card: title box plus three field rows. The card is placed
+        # high enough that the stamp below it never collides with fields.
+        card = RoundedRectangle(corner_radius=0.15, width=6.6, height=4.6,
+                                color=GREY_B).shift(LEFT * 0.6 + UP * 0.5)
         card_title = Text("Product", font_size=26, color=BLACK).move_to(
-            card.get_top() + DOWN * 0.5)
+            card.get_top() + DOWN * 0.6)
         fields = [
             ("material:", "leather"),
             ("color:", "black"),
@@ -49,10 +50,12 @@ class EntroShopSim_Reveal(Scene):
         ]
         rows = VGroup()
         for i, (k, v) in enumerate(fields):
+            # Anchor each key to the card center with a fixed downward step;
+            # the value sits to the right via next_to so it never overlaps.
             key = Text(k, font_size=24, color=BLACK).move_to(
-                card.get_left() + RIGHT * 0.9 + DOWN * (i + 1.2))
+                card.get_center() + UP * 0.9 + DOWN * (i * 0.9))
             val = Text(v, font_size=24, color=DARK_BLUE).next_to(
-                key, RIGHT, buff=0.4)
+                key, RIGHT, buff=0.35)
             rows.add(VGroup(key, val))
 
         self.play(Create(card), Write(card_title), run_time=0.7)
@@ -60,9 +63,9 @@ class EntroShopSim_Reveal(Scene):
             self.play(Write(row), run_time=0.4)
             self.wait(0.6)
 
-        # Verbatim stamp: the customer repeats this, word for word.
+        # Verbatim stamp: well below the card bottom, clear of the fields.
         stamp = Text("repeated verbatim, word for word", font_size=26,
-                     color=GREEN_E).move_to(card.get_bottom() + DOWN * 0.9)
+                     color=GREEN_E).move_to(card.get_bottom() + DOWN * 1.0)
         self.play(Write(stamp))
         self.wait(1.2)
         self.play(FadeOut(card_title), *[FadeOut(r) for r in rows],
@@ -173,30 +176,36 @@ class EntroShopSim_Trie(Scene):
 
 
 class EntroShopSim_Regex(Scene):
-    """Regexes catch synthetic constraints: color: x and budget."""
+    """Regexes catch synthetic constraints: color: x and budget.
+
+    Two explicit columns: chat input on the left, the matching regex on the
+    right, so nothing overlaps horizontally.
+    """
 
     def construct(self):
         make_bg(self)
         ttl = title(self, "regexes for synthetic constraints")
 
-        # A chat line and the two patterns it matches.
-        line1 = Text("customer: color is black", font_size=28, color=BLACK).shift(
-            UP * 1.2)
+        # Two chat lines, stacked in the left column.
+        line1 = Text("customer: color is black", font_size=28, color=BLACK).move_to(
+            LEFT * 4.2 + UP * 0.9)
         line2 = Text("customer: under 30 dollars", font_size=28,
-                     color=BLACK).shift(DOWN * 0.4)
+                     color=BLACK).move_to(LEFT * 4.2 + DOWN * 0.9)
         self.play(Write(line1), run_time=0.4)
         self.play(Write(line2), run_time=0.4)
 
-        pat1 = Text("regex: color:\\s*x", font_size=26, color=TEAL).shift(
-            RIGHT * 3.2 + UP * 1.2)
-        pat2 = Text("regex: budget (\\$\\d+)", font_size=26, color=ORANGE).shift(
-            RIGHT * 3.2 + DOWN * 0.4)
+        # Regex patterns in the right column, aligned to each chat line.
+        pat1 = Text(r"regex: color:\s*x", font_size=26, color=TEAL).move_to(
+            RIGHT * 2.2 + UP * 0.9)
+        pat2 = Text(r"regex: budget (\$\d+)", font_size=26, color=ORANGE).move_to(
+            RIGHT * 2.2 + DOWN * 0.9)
         self.play(Write(pat1), Write(pat2), run_time=0.5)
 
+        # Matched substrings, below each pattern.
         hit1 = Text("→ color: black", font_size=24, color=GREEN_E).next_to(
-            pat1, DOWN, buff=0.5)
+            pat1, DOWN, buff=0.55)
         hit2 = Text("→ $30", font_size=24, color=GREEN_E).next_to(
-            pat2, DOWN, buff=0.5)
+            pat2, DOWN, buff=0.55)
         self.play(Write(hit1), Write(hit2))
         self.wait(1.8)
         self.play(FadeOut(line1), FadeOut(line2), FadeOut(pat1), FadeOut(pat2),
