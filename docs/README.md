@@ -26,7 +26,7 @@ top-down or jump straight to the topic you need.
 The competition write-up (mini-paper) lives in
 [`PROJECT.md`](PROJECT.md); the standalone stress-test report is in
 [`STRESS_TEST.md`](STRESS_TEST.md). The demo-video script (English,
-WWDC/NVIDIA engineer walkthrough style, covers the core loop and the MCP
+Houdini-Foundations-style walkthrough, covers the core loop and the MCP
 server) is in [`DEMO_VIDEO_SCRIPT.md`](DEMO_VIDEO_SCRIPT.md); the
 multi-turn session it can record is specified in
 [`DEMO_SESSION.md`](DEMO_SESSION.md).
