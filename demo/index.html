@@ -115,6 +115,15 @@
   details.others .recs { margin-top: 8px; }
   /* ---- staged-filter funnel ---- */
   .funnel { margin: 10px 0 4px; }
+  /* ---- n-ary property tree chain ---- */
+  .tree-chain { margin: 8px 0 2px; padding: 8px 10px; border: 1px dashed #4c5a7a;
+                border-radius: 8px; background: rgba(76, 90, 122, 0.10); font-size: 12px; }
+  .tc-label { color: #9fb0cf; margin-bottom: 5px; letter-spacing: 0.3px; }
+  .tc-path { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+  .tc-seg { background: #232b3f; border: 1px solid #3a4563; padding: 2px 8px;
+            border-radius: 999px; color: #c8d3ea; }
+  .tc-leaf { background: #6d28d9; border-color: #8b5cf6; color: #fff; font-weight: 600; }
+  .tc-arrow { color: #5b6b8f; }
   .fstep { display: flex; align-items: center; gap: 8px; margin: 3px 0; font-size: 11px; color: var(--muted); }
   .fstep .bar { flex: 1; height: 8px; background: var(--chip); border-radius: 4px; overflow: hidden; }
   .fstep .bar div { height: 100%; background: linear-gradient(90deg, #27406e, var(--accent)); border-radius: 4px; }
@@ -630,6 +639,15 @@ function renderTurn(r) {
       </div>` : '';
     const signals = (r.signals && r.signals.length)
       ? `<div class="guide-chips sig-row">${r.signals.map(s => `<span class="chip">${esc(s)}</span>`).join('')}</div>` : '';
+    const tc = r.tree_chain;
+    const treeChain = tc && tc.chain && tc.chain.length
+      ? `<div class="tree-chain" title="n-ary property tree: each product maps to one unique chain (root → leaf)">
+           <div class="tc-label">Property tree chain · ${tc.leaf_products} products at leaf</div>
+           <div class="tc-path">${tc.chain.map((seg, i) => `
+             <span class="tc-seg${i === tc.chain.length - 1 ? ' tc-leaf' : ''}">${esc(seg)}</span>
+             ${i < tc.chain.length - 1 ? '<span class="tc-arrow">›</span>' : ''}`).join('')}
+           </div>
+         </div>` : '';
     const stars = c.average_rating != null ? '★ ' + Number(c.average_rating).toFixed(1) : '';
     cards = `
       <div class="final-card">
@@ -643,6 +661,7 @@ function renderTurn(r) {
           ${signals}
           <button class="pd-buy" onclick="alert('Demo only — the final pick for your converged session.')">🛒 Add to cart · ${fmtPrice(c.price)}</button>
           ${funnel}
+          ${treeChain}
           ${rest.length ? `
           <details class="others">
             <summary>Other candidates (${rest.length}) — expand</summary>

@@ -62,6 +62,19 @@ TOOLS = [
             "required": ["conversation"],
         },
     },
+    {
+        "name": "tree_chain",
+        "description": (
+            "Return the unique n-ary property-tree chain of a product: the "
+            "category properties from root to leaf (coarse to fine), plus how "
+            "many catalog products share that exact leaf chain."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {"asin": {"type": "string", "description": "parent_asin, e.g. B07K34RX5J"}},
+            "required": ["asin"],
+        },
+    },
 ]
 
 
@@ -69,6 +82,7 @@ TOOLS = [
 class MCPContext:
     index: CatalogIndex
     dense: object  # TransformerDense or DenseIndex (query_scores interface)
+    tree: object | None = None  # optional ProductTree (unique product chains)
 
 
 def build_mcp_context(catalog_path: str) -> MCPContext:
@@ -141,6 +155,20 @@ def _call_tool(ctx: MCPContext, name: str, arguments: dict) -> object:
         if parsed.budget is None:
             return {"message": "What budget range are you thinking of?", "ask_attribute": "budget"}
         return {"message": "Any other hard requirements? Otherwise I'll start recommending.", "ask_attribute": None}
+    if name == "tree_chain":
+        asin = str(arguments.get("asin") or "").strip()
+        if asin not in ctx.index.products:
+            raise ValueError(f"unknown parent_asin: {asin}")
+        if ctx.tree is None:
+            from .tree import ProductTree
+
+            ctx.tree = ProductTree(ctx.index)
+        chain = ctx.tree.chain(asin)
+        return {
+            "parent_asin": asin,
+            "chain": chain,
+            "leaf_products": len(ctx.tree.products_for(chain)),
+        }
     raise ValueError(f"unknown tool: {name}")
 
 

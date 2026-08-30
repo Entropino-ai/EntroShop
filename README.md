@@ -43,7 +43,8 @@ The demo renders step 3 as a **MiroFish-style god-view world**: candidate produc
 - 🧭 **Entropy-guided clarification** — facet (color / material / price / category) chosen by pool entropy, clickable chips, no-progress auto-convergence, hard 10-turn clamp
 - 🌊 **MiroFish-style world visualization** — live swarm convergence, pan / zoom, hover details
 - 🔍 **Hybrid retrieval** — exact-phrase conjunction + coarse-category exact match + TF-IDF/MiniLM dense route + optional DeepSeek LLM rerank (failure-safe)
-- 🔌 **MCP server** — `search_products`, `product_details`, `clarify` tools over stdio or HTTP (JSON-RPC 2.0, stdlib-only)
+- 🔌 **MCP server** — `search_products`, `product_details`, `clarify`, `tree_chain` tools over stdio or HTTP (JSON-RPC 2.0, stdlib-only)
+- 🌳 **Product-property tree** — the catalog organized as an n-ary tree (coarse → fine properties); every product maps to one unique root-to-leaf chain, rendered as a breadcrumb on the final pick and exposed via the MCP `tree_chain` tool
 - 🧠 **MiniLM dense route** (optional) — 50k product embeddings, one-time cache
 - 🈶 **Bilingual input** — Chinese and English free-form queries
 

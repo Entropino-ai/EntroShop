@@ -41,6 +41,7 @@ from agent_lib.llm_rank import LLMReranker  # noqa: E402
 from agent_lib.mcp import MCPContext, handle as mcp_handle  # noqa: E402
 from agent_lib.query import freeform_query  # noqa: E402
 from agent_lib.retrieve import freeform_retrieve_with_pool  # noqa: E402
+from agent_lib.tree import ProductTree  # noqa: E402
 
 try:
     from evaluator.local_evaluator import (  # noqa: E402
@@ -135,6 +136,17 @@ def product_card(asin: str) -> dict:
     }
 
 
+def tree_chain_of(asin: str | None) -> dict | None:
+    """The product's unique n-ary-tree chain (property path root → leaf)
+    plus how many catalog products share that exact leaf, for the engine
+    panel. Returns None when there is no final pick yet."""
+    if asin is None or AGENT is None or getattr(AGENT, "tree", None) is None:
+        return None
+    chain = AGENT.tree.chain(asin)
+    siblings = len(AGENT.tree.products_for(chain))
+    return {"asin": asin, "chain": chain, "leaf_products": siblings}
+
+
 def state_view(session_id: str, parsed) -> dict:
     state = AGENT._sessions[session_id]
     return {
@@ -216,6 +228,7 @@ def demo_turn(session: DemoSession, body: dict) -> dict:
         },
         "profile": session.sample["user_profile"],
         "state": state_view(session.sid, parsed),
+        "tree_chain": tree_chain_of(session.target),
         "world": build_world(session.world,
                              list(ranked) + ([session.target] if session.target not in ranked else []),
                              session.target if session.hit else None, session.hit),
@@ -508,6 +521,7 @@ def chat_turn(session: ChatSession, body: dict) -> dict:
                   "pool_size": pool_size, "hard": is_hard},
         "final": product_card(ranked[0]) if converged and ranked else None,
         "funnel": funnel,
+        "tree_chain": tree_chain_of(final_asin),
         "signals": signals,
         "world": build_world(session.world, world_alive, ranked[0] if (converged and ranked) else None,
                              converged),
@@ -625,7 +639,8 @@ class Handler(BaseHTTPRequestHandler):
             self._json({"ok": True, "configured": True, "model": model})
         elif self.path == "/mcp":
             # JSON-RPC 2.0 endpoint (same handler as the stdio server)
-            ctx = MCPContext(index=AGENT.index, dense=AGENT.dense)
+            ctx = MCPContext(index=AGENT.index, dense=AGENT.dense,
+                             tree=getattr(AGENT, "tree", None))
             response = mcp_handle(ctx, body.get("method"), body.get("params") or {}, body.get("id"))
             if response is None:
                 self._json({"jsonrpc": "2.0", "id": None, "result": {}})
@@ -690,6 +705,7 @@ def main() -> None:
     if AGENT.llm is not None and not validate_llm(AGENT.llm):
         AGENT.llm = None
     setattr(AGENT, "_llm_fails", 0)
+    setattr(AGENT, "tree", ProductTree(AGENT.index))
     PRODUCTS = AGENT.index.products
     CATEGORIES = {asin: [str(value) for value in (product.get("categories") or [])]
                   for asin, product in PRODUCTS.items()}

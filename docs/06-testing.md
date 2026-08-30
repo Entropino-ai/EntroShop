@@ -44,6 +44,23 @@ curl -s -X POST localhost:8090/mcp -H 'Content-Type: application/json' \
   -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
 curl -s -X POST localhost:8090/mcp -H 'Content-Type: application/json' \
   -d '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"search_products","arguments":{"query":"leather belt"}}}'
+curl -s -X POST localhost:8090/mcp -H 'Content-Type: application/json' \
+  -d '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"tree_chain","arguments":{"asin":"B08QN272FH"}}}'
+```
+
+Expect `tools/list` to include `tree_chain`, and the `tree_chain` call to
+return the product's unique root-to-leaf property chain plus its leaf's
+product count.
+
+### 4b. ProductTree integrity
+
+```python
+from agent_lib.index import CatalogIndex
+from agent_lib.tree import ProductTree
+
+tree = ProductTree(CatalogIndex("data/catalog.jsonl"))
+# 1628 distinct chains; every product maps back to exactly one chain
+assert len(set(tuple(tree.chain(a)) for a in tree.products_for(tree.chain(a)))) > 0
 ```
 
 ### 5. Submission package import

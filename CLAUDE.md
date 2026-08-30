@@ -25,7 +25,9 @@ Deps: numpy + scikit-learn in `/opt/miniconda3/bin/python3` (already installed).
 ```text
 starter/agent.py   REQUIRED competition entry point — exports class Agent
 agent_lib/         catalog index, message understanding, state machine,
-                   multi-route retrieval, dense routes, MCP core, guidance
+                   multi-route retrieval, dense routes, MCP core, guidance,
+                   n-ary product-property tree (tree.py: unique per-product
+                   chains + product mapping)
 demo/              HTTP server + single-page UI
 evaluator/         official judge (organizer kit artifact — READ-ONLY)
 data/              catalog.jsonl (50k products), public_set.jsonl (200 sessions)

@@ -9,10 +9,11 @@
 | `agent_lib/retrieve.py` | multi-route retrieval, scoring, cascade relaxation, freeform route with pool |
 | `agent_lib/guide.py` | entropy-guided clarification, convergence policy, hard pool, option labels |
 | `agent_lib/query.py` | free-form query understanding + zh→en dictionary + budget regexes |
+| `agent_lib/tree.py` | n-ary product-property tree: unique per-product chains, product mapping, family detection |
 | `agent_lib/dense.py` | TF-IDF dense index (stdlib) |
 | `agent_lib/dense_transformer.py` | MiniLM dense route (optional, cached embeddings) |
 | `agent_lib/llm_rank.py` | optional OpenAI-compatible reranker (failure-safe, ping probe) |
-| `agent_lib/mcp.py` | MCP server core: `search_products`, `product_details`, `clarify` (JSON-RPC 2.0) |
+| `agent_lib/mcp.py` | MCP server core: `search_products`, `product_details`, `clarify`, `tree_chain` (JSON-RPC 2.0) |
 | `demo/` | interactive UI server: arena + chain-of-thought + convergence card + MCP stdio entry |
 | `analysis/` | development probes, offline tuners, policy grids, synthetic stress |
 | `submission/` | official submission package (self-contained `agent.py` + `src/`) |
@@ -64,7 +65,29 @@
 ### `agent_lib/mcp.py`
 
 - Tools: `search_products(query, top_k)`, `product_details(asin)`,
-  `clarify(question, context)`
+  `clarify(question, context)`, `tree_chain(asin)`
 - `build_mcp_context(...)` — assembles catalog + session context into an MCP
   prompt envelope
 - JSON-RPC 2.0 over stdio (MCP hosts) or HTTP (`demo/server.py` `/mcp`)
+
+### `agent_lib/tree.py` — `ProductTree(index)`
+
+An n-ary tree over product properties. Every fork node carries one category
+property; children branch by containment, so each level is finer-grained
+than the parent. A mapping sits on the tree (`node.products`), and every
+product maps to **exactly one unique chain** — the sequence of category
+properties from root to its leaf — because `categories` is a fixed ordered
+list.
+
+- `chain(asin)` → the product's unique property chain (root → leaf)
+- `node_for(chain)` / `products_for(chain)` → the node / concrete products
+  mapped to an exact chain
+- `products_under(chain)` → all products under a subtree
+- `common_prefix(asin_a, asin_b)` → longest shared chain (LCA; the shared
+  disclosure prefix of two products)
+- `families(min_size)` → chains shared by ≥ N products (the ambiguous
+  "family" corner cases)
+- `to_dict(...)` → serializable view for the demo UI
+
+Built once from the frozen catalog (`starter/agent.py`, `demo/server.py`,
+`agent_lib/mcp.py` all attach it); read-only afterwards.

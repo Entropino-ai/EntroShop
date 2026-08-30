@@ -30,6 +30,7 @@ from agent_lib.index import CatalogIndex
 from agent_lib.llm_rank import LLMReranker
 from agent_lib.retrieve import retrieve
 from agent_lib.state import ConversationState, PLANS
+from agent_lib.tree import ProductTree
 
 try:
     from agent_lib.dense import DenseIndex
@@ -64,6 +65,7 @@ class Agent:
             self.dense = None
         self.llm = LLMReranker.from_env()
         self._sessions: dict[str, ConversationState] = {}
+        self.tree = ProductTree(self.index)
 
     # ------------------------------------------------------------------ API
     def reset(self, session_id: str, user_profile: dict) -> None:

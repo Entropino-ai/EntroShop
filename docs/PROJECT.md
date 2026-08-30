@@ -194,6 +194,7 @@ user message
 | `agent_lib/dense.py` / `dense_transformer.py` | TF-IDF / MiniLM dense routes |
 | `agent_lib/llm_rank.py` | optional OpenAI-compatible reranker (failure-safe) |
 | `agent_lib/mcp.py` | MCP server core (JSON-RPC 2.0) |
+| `agent_lib/tree.py` | n-ary product-property tree (unique per-product chains + product mapping) |
 | `agent_lib/query.py` | free-form query understanding + zh→en dictionary |
 | `demo/` | interactive UI server, arena + chain-of-thought, MCP stdio entry |
 | `analysis/` | development probes, offline tuners, policy grids |

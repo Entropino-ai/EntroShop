@@ -161,7 +161,7 @@ def test_mcp() -> None:
     tools = _request("http://127.0.0.1:8090/mcp",
                      {"jsonrpc": "2.0", "id": 1, "method": "tools/list"})
     names = [t.get("name") for t in tools.get("result", {}).get("tools", [])]
-    for tool in ("search_products", "product_details", "clarify"):
+    for tool in ("search_products", "product_details", "clarify", "tree_chain"):
         check(f"tool {tool}", tool in names, str(names))
     res = _request("http://127.0.0.1:8090/mcp",
                    {"jsonrpc": "2.0", "id": 2, "method": "tools/call",
@@ -169,6 +169,13 @@ def test_mcp() -> None:
                                "arguments": {"query": "leather belt"}}})
     check("search_products returns items",
           bool(res.get("result", {}).get("content")), str(res)[:200])
+    tc = _request("http://127.0.0.1:8090/mcp",
+                  {"jsonrpc": "2.0", "id": 3, "method": "tools/call",
+                   "params": {"name": "tree_chain",
+                              "arguments": {"asin": "B08QN272FH"}}})
+    tc_text = (tc.get("result", {}).get("content") or [{}])[0].get("text", "")
+    check("tree_chain returns chain + leaf count",
+          '"chain"' in tc_text and "leaf_products" in tc_text, tc_text[:150])
 
 
 def test_submission_package() -> None:
@@ -211,12 +218,33 @@ def test_index_integrity() -> None:
     check("prices populated", len(idx.prices) > 40_000)
 
 
+def test_product_tree() -> None:
+    print("[8/8] product-property tree (unique chains + mapping)")
+    from agent_lib.index import CatalogIndex
+    from agent_lib.tree import ProductTree
+    idx = CatalogIndex(ROOT / "data" / "catalog.jsonl")
+    tree = ProductTree(idx)
+    check("1628 distinct chains", tree.node_count >= 1600, str(tree.node_count))
+    check("every product maps to a unique chain",
+          all(tuple(tree.chain(a)) for a in idx.products), "")
+    sample = next(iter(idx.products))
+    chain = tree.chain(sample)
+    check("chain is root->leaf with >=2 segments", len(chain) >= 2, str(chain))
+    check("products_for(chain) contains the product", sample in tree.products_for(chain),
+          str(len(tree.products_for(chain))))
+    check("common_prefix returns shared path",
+          tree.common_prefix(sample, sample) == chain, str(tree.common_prefix(sample, sample)))
+    fam = tree.families(min_size=2)
+    check("family detection non-empty", len(fam) > 100, str(len(fam)))
+
+
 def main() -> None:
     print("=" * 64)
     print("EntroShop smoke suite")
     print("=" * 64)
     t0 = time.time()
     test_index_integrity()
+    test_product_tree()
     test_evaluator_regression()
     test_convergence_battery()
     test_demo()

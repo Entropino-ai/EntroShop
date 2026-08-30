@@ -77,6 +77,34 @@ Convergence fires when any of the following holds:
 
 At convergence one champion is crowned from the exact matches.
 
+## Product-property tree
+
+Alongside the retrieval indexes, the catalog is organized as an **n-ary
+property tree** (`agent_lib/tree.py`): every fork node is one product
+property (a category segment), children branch by containment, and each
+level is finer-grained than its parent:
+
+```
+root
+ └─ Clothing, Shoes & Jewelry      (coarsest)
+     ├─ Women
+     │   ├─ Shoes
+     │   │   ├─ Boots & Booties    (finer)
+     │   │   │   └─ products: [B0…, B1…]   ← concrete product mapping
+     │   │   └─ Sneakers
+     └─ Men
+```
+
+A mapping lives on the tree: each node's `products` list maps that property
+to the concrete catalog products it covers, and **every product corresponds
+to exactly one unique chain** — the root-to-leaf sequence of its category
+properties (guaranteed because `categories` is a fixed ordered list). The
+tree backs the demo's "Property tree chain" panel (the final pick rendered
+as a coarse-to-fine breadcrumb with the leaf's product count), the MCP
+`tree_chain` tool, and `common_prefix` which exposes the shared disclosure
+prefix of two products — the information-theoretic bound behind the
+family-ambiguous corner cases.
+
 ## Free chat (demo)
 
 The demo's *Free chat* mode runs the same agent but against the live chat
