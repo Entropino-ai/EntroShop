@@ -41,13 +41,14 @@ Non-code work is listed where it maps to specific deliverables.
 
 - Repository hygiene: ignore `.venv`, removed a stray catalog archive.
 
-## Non-code & delivery (to be confirmed by the team)
+## Team members without build-window contributions
 
-- cray-xiaocheng: (to be filled — e.g. registration logistics, testing,
-  documentation, video)
-- Siuuuuean: (to be filled — e.g. registration logistics, testing,
-  documentation, video)
+- cray-xiaocheng: registered and listed as a team member; unavailable during
+  the build window due to academic commitments, no code or delivery
+  contributions.
+- Siuuuuean: registered and listed as a team member; unavailable during
+  the build window due to academic commitments, no code or delivery
+  contributions.
 
-> The two members above have no commits in the current repository history;
-> their non-code contributions should be listed here before submission, since
-> the track rules require a team-contributions record.
+The three members above (SakuraEntropia, YH122432, Xxp20080101) carried the
+implementation and delivery work.
