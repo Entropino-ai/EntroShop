@@ -990,6 +990,8 @@ $('btn-mcp-test').onclick = async () => {
   }
 };
 restoreLLM();
+// auto-start a session on load so Send works immediately (no manual click)
+newSession();
 </script>
 </body>
 </html>

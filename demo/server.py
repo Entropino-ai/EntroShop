@@ -206,6 +206,17 @@ def demo_turn(session: DemoSession, body: dict) -> dict:
 
     cards = [product_card(asin) for asin in ranked[:TOP_K]]
     target_rank = ranked.index(session.target) + 1 if session.target in ranked[:TOP_K] else None
+    # unified convergence card: the hit product rendered as a product page
+    # (same shape as chat mode) so the frontend uses one rendering branch
+    final_card = product_card(session.target) if session.hit else None
+    demo_funnel = None
+    if session.hit:
+        demo_funnel = {
+            "catalog": len(PRODUCTS),
+            "union": None,
+            "hard": session.hit_rank or None,
+            "final": 1,
+        }
     return {
         "mode": "demo",
         "turn": turn,
@@ -214,6 +225,8 @@ def demo_turn(session: DemoSession, body: dict) -> dict:
         "agent_message": response.get("message", ""),
         "ask_attribute": response.get("ask_attribute"),
         "recommendations": cards,
+        "final": final_card,
+        "funnel": demo_funnel,
         "target_rank": target_rank,
         "hit": session.hit,
         "hit_turn": session.hit_turn,

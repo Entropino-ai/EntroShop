@@ -14,7 +14,7 @@
 | `agent_lib/dense_transformer.py` | MiniLM dense route (optional, cached embeddings) |
 | `agent_lib/llm_rank.py` | optional OpenAI-compatible reranker (failure-safe, ping probe) |
 | `agent_lib/mcp.py` | MCP server core: `search_products`, `product_details`, `clarify`, `tree_chain` (JSON-RPC 2.0) |
-| `demo/` | interactive UI server: arena + chain-of-thought + convergence card + MCP stdio entry |
+| `demo/` | interactive UI server: arena + chain-of-thought + unified product-page convergence card (chat & example) + real localStorage cart + MCP stdio entry |
 | `analysis/` | development probes, offline tuners, policy grids, synthetic stress |
 | `submission/` | official submission package (self-contained `agent.py` + `src/`) |
 
