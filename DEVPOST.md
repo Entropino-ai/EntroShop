@@ -60,6 +60,6 @@ The same agent is exposed as an MCP server (tools: `search_products`, `product_d
 
 ## Links
 
-- Code: https://github.com/SakuraEntropia/EntroShop
+- Code: https://github.com/Entropino-ai/EntroShop
 - Demo video: (to be added)
 - Data: Amazon Reviews 2023, McAuley Lab, UCSD; see DATA_ATTRIBUTION.md in the repo
