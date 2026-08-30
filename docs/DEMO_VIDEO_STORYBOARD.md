@@ -55,7 +55,7 @@ rendered lengths, so a clip may need a speedup or a hold in the editor.
 | 2 | "...one product we have to find." | `EntroShopOpen_Target.mp4` | 2.0s | target lights red |
 | 3 | "...we get ten turns to do it." | `EntroShopOpen_Rings.mp4` | 5.2s | ten inward rings |
 | 4 | "...asks the right questions and converges." | `EntroShopOpen_Collapse.mp4` | 3.0s | swarm sweeps in |
-| 5 | "200 out of 200 ... zero tokens offline." | `EntroShopOpen_Score.mp4` | 2.5s | score punchline |
+| 5 | "200 out of 200 ... zero tokens offline." | `EntroShopOpen_ScoreHit.mp4` → `EntroShopOpen_ScoreTurns.mp4` → `EntroShopOpen_ScoreTokens.mp4` | 2.4s each | three stats, one per clip |
 | 25 | "...an n-ary tree of category properties." | `EntroShopTree_Grow.mp4` | 5.0s | tree grows |
 | 26–29 | "...one chain ... breadcrumb ... why." | `EntroShopTree_Breadcrumb.mp4` | 3.2s | breadcrumb + lookup |
 | 27 | "...Category lookups are O(1)..." | `EntroShopTree_Lookup.mp4` | 2.2s | (optional) lookup flash |
@@ -84,7 +84,7 @@ Extras (longer cut / docs):
 | 2 | 0:03 | Somewhere in a 50,000-item catalog there's one product we have to find. | clip EntroShopOpen_Target: one point brightens red |
 | 3 | 0:08 | A simulated customer answers our questions, and we get ten turns to do it. | clip EntroShopOpen_Rings: ten inward rings; overlay "1 target. 10 turns." |
 | 4 | 0:12 | So we built a little agent that asks the right questions and converges. | clip EntroShopOpen_Collapse: swarm sweeps into the target |
-| 5 | 0:15 | 200 out of 200 on the public set, 1.59 turns average, zero tokens offline. | clip EntroShopOpen_Score: "200/200 · 1.59 turns · 0 tokens" |
+| 5 | 0:15 | 200 out of 200 on the public set, 1.59 turns average, zero tokens offline. | clips EntroShopOpen_ScoreHit → ScoreTurns → ScoreTokens, one stat each |
 | 6 | 0:18 | Let's go ahead and walk through it. | Cut to screen recording |
 
 ### [0:20–0:55] Scene 1 — the simulator hands you the data (screen recording)
@@ -153,7 +153,7 @@ Extras (longer cut / docs):
 
 ### docs/manim/convergence.py
 
-Open clip, 5 phases: Cloud, Target, Rings, Collapse, Score.
+Open clip, 5 phases: Cloud, Target, Rings, Collapse, Score (Score split into Hit/Turns/Token variants).
 
 ```python
 """Open clip, modular: each phase is its own Scene and renders to its own mp4.
@@ -163,7 +163,10 @@ Render all (or just the ones you need):
     manim render -qh convergence.py EntroShopOpen_Target
     manim render -qh convergence.py EntroShopOpen_Rings
     manim render -qh convergence.py EntroShopOpen_Collapse
-    manim render -qh convergence.py EntroShopOpen_Score
+    manim render -qh convergence.py EntroShopOpen_Score        # combined
+    manim render -qh convergence.py EntroShopOpen_ScoreHit     # 200/200
+    manim render -qh convergence.py EntroShopOpen_ScoreTurns   # 1.59
+    manim render -qh convergence.py EntroShopOpen_ScoreTokens  # 0
 """
 from manim import *
 import numpy as np
@@ -240,7 +243,7 @@ class EntroShopOpen_Collapse(Scene):
 
 
 class EntroShopOpen_Score(Scene):
-    """Phase 5: the score punchline fades in and holds."""
+    """Phase 5 (combined): the score punchline fades in and holds."""
 
     def construct(self):
         make_bg(self)
@@ -248,6 +251,39 @@ class EntroShopOpen_Score(Scene):
                      color=GREEN_E).scale(0.8)
         self.play(Write(score), run_time=1.0)
         self.wait(1.5)
+
+
+def _score_card(scene: Scene, big: str, small: str) -> None:
+    """Draw one big stat with a grey caption under it."""
+    number = Text(big, color=GREEN_E, font_size=72)
+    caption = Text(small, color=GREY, font_size=28).next_to(number, DOWN, buff=0.5)
+    scene.play(Write(number), run_time=0.8)
+    scene.play(Write(caption), run_time=0.4)
+    scene.wait(1.2)
+
+
+class EntroShopOpen_ScoreHit(Scene):
+    """Phase 5a: hit rate, 200/200."""
+
+    def construct(self):
+        make_bg(self)
+        _score_card(self, "200/200", "hit rate on the public set")
+
+
+class EntroShopOpen_ScoreTurns(Scene):
+    """Phase 5b: mean turns to conversion, 1.59."""
+
+    def construct(self):
+        make_bg(self)
+        _score_card(self, "1.59", "average turns to conversion")
+
+
+class EntroShopOpen_ScoreTokens(Scene):
+    """Phase 5c: offline token cost, 0."""
+
+    def construct(self):
+        make_bg(self)
+        _score_card(self, "0", "tokens, offline")
 ```
 
 ### docs/manim/tree.py

@@ -5,7 +5,10 @@ Render all (or just the ones you need):
     manim render -qh convergence.py EntroShopOpen_Target
     manim render -qh convergence.py EntroShopOpen_Rings
     manim render -qh convergence.py EntroShopOpen_Collapse
-    manim render -qh convergence.py EntroShopOpen_Score
+    manim render -qh convergence.py EntroShopOpen_Score        # combined
+    manim render -qh convergence.py EntroShopOpen_ScoreHit     # 200/200
+    manim render -qh convergence.py EntroShopOpen_ScoreTurns   # 1.59
+    manim render -qh convergence.py EntroShopOpen_ScoreTokens  # 0
 """
 from manim import *
 import numpy as np
@@ -82,7 +85,7 @@ class EntroShopOpen_Collapse(Scene):
 
 
 class EntroShopOpen_Score(Scene):
-    """Phase 5: the score punchline fades in and holds."""
+    """Phase 5 (combined): the score punchline fades in and holds."""
 
     def construct(self):
         make_bg(self)
@@ -90,3 +93,36 @@ class EntroShopOpen_Score(Scene):
                      color=GREEN_E).scale(0.8)
         self.play(Write(score), run_time=1.0)
         self.wait(1.5)
+
+
+def _score_card(scene: Scene, big: str, small: str) -> None:
+    """Draw one big stat with a grey caption under it."""
+    number = Text(big, color=GREEN_E, font_size=72)
+    caption = Text(small, color=GREY, font_size=28).next_to(number, DOWN, buff=0.5)
+    scene.play(Write(number), run_time=0.8)
+    scene.play(Write(caption), run_time=0.4)
+    scene.wait(1.2)
+
+
+class EntroShopOpen_ScoreHit(Scene):
+    """Phase 5a: hit rate, 200/200."""
+
+    def construct(self):
+        make_bg(self)
+        _score_card(self, "200/200", "hit rate on the public set")
+
+
+class EntroShopOpen_ScoreTurns(Scene):
+    """Phase 5b: mean turns to conversion, 1.59."""
+
+    def construct(self):
+        make_bg(self)
+        _score_card(self, "1.59", "average turns to conversion")
+
+
+class EntroShopOpen_ScoreTokens(Scene):
+    """Phase 5c: offline token cost, 0."""
+
+    def construct(self):
+        make_bg(self)
+        _score_card(self, "0", "tokens, offline")
