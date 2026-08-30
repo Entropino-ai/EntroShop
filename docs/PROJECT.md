@@ -8,7 +8,7 @@
 
 **【TiktokTechJam2026】** · TikTok TechJam 2026 Track 4 — Shopping Copilot: AI Conversational Search & Recommendations
 
-**Authors:** EntroShop Team — active contributors: SakuraEntropia (lead), YH122432, Xxp20080101; team members: cray-xiaocheng, Siuuuuean — GitHub [Entropino-ai/EntroShop](https://github.com/Entropino-ai/EntroShop); contribution record in [`TEAM_CONTRIBUTIONS.md`](TEAM_CONTRIBUTIONS.md)
+**Authors:** EntroShop Team — active contributors: SakuraEntropia (lead, Devpost: faputa), YH122432, 残酷な天使 (GitHub: Xxp20080101); team members: cray-xiaocheng, Siuuuuean — GitHub [Entropino-ai/EntroShop](https://github.com/Entropino-ai/EntroShop); contribution record in [`TEAM_CONTRIBUTIONS.md`](TEAM_CONTRIBUTIONS.md)
 
 **Keywords:** conversational recommender systems · hybrid retrieval · clarification policy · information elicitation · swarm-intelligence UI · Model Context Protocol
 

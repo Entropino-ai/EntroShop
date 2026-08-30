@@ -4,12 +4,14 @@ TikTok TechJam 2026 · Track 4 Shopping Copilot · EntroShop Team
 GitHub org: [Entropino-ai](https://github.com/Entropino-ai) · Repo:
 [Entropino-ai/EntroShop](https://github.com/Entropino-ai/EntroShop)
 
-The contribution record below is grounded in the repository's git history.
+The contribution record below follows the team's own authorship record.
+Note on commit metadata: teammate code was frequently committed under the
+lead's GitHub account, so git authors alone undercount teammate contributions.
 Non-code work is listed where it maps to specific deliverables.
 
 ## Engineering & code (git history)
 
-### SakuraEntropia — project lead
+### SakuraEntropia — project lead (Devpost: faputa)
 
 - Core agent design and implementation: message understanding (template
   parser, catalog phrase trie, synthetic constraint regex), intent routing
@@ -45,8 +47,12 @@ Non-code work is listed where it maps to specific deliverables.
 - Guide-chip selection fix: stopped `budget` leaking as a keyword; added chip
   feedback.
 
-### Xxp20080101
+### 残酷な天使 (GitHub: Xxp20080101)
 
+- Proposed the tree-structure optimization and depth weighting behind the
+  retrieval engine v2 (n-ary product-property tree, tree-first matching,
+  depth-weighted scoring); implemented together with the lead, committed
+  under the lead's account.
 - Repository hygiene: ignore `.venv`, removed a stray catalog archive.
 
 ## Team members without build-window contributions
