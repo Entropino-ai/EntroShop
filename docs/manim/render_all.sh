@@ -23,8 +23,10 @@ render convergence.py EntroShopOpen_Collapse
 render convergence.py EntroShopOpen_Score
 render convergence.py EntroShopOpen_ScoreTable
 render tree.py EntroShopTree_Grow
-render tree.py EntroShopTree_Breadcrumb
+render tree.py EntroShopTree_Chains
 render tree.py EntroShopTree_Lookup
+render tree.py EntroShopTree_SkipLLM
+render tree.py EntroShopTree_Breadcrumb
 render numbers.py EntroShopNumbers_Build
 render numbers.py EntroShopNumbers_Highlight
 render pipeline.py EntroShopPipeline_Build

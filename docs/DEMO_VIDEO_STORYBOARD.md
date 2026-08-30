@@ -9,11 +9,11 @@ the bottom of this file.
 
 The scenes are **modular**: each phase is its own Scene class and
 renders to its own clip, so the editor can assemble the 3-minute video
-from the exact shots it needs. 23 clips across 9 source files:
+from the exact shots it needs. 25 clips across 9 source files:
 
 - `simulator.py` — Scene 1, 4 phases: Reveal, ExactMatch, Trie, Regex
 - `convergence.py` — 5 phases: Cloud, Target, Rings, Collapse, Score (+ ScoreTable)
-- `tree.py` — 3 phases: Grow, Breadcrumb, Lookup (real multi-level tree)
+- `tree.py` — 5 phases: Grow, Chains, Lookup, SkipLLM, Breadcrumb (full 33s Scene 3)
 - `numbers.py` — 2 phases: Build, Highlight
 - `pipeline.py` — 2 phases: Build, Loop (docs/02)
 - `convergence_policy.py` — 2 phases: Curve, Wall (docs/02)
@@ -45,7 +45,7 @@ speedup or a hold in the editor to land on its beat.
 
 ### Recommended edit order (which clip goes with which line)
 
-The 3-minute cut uses 16 of the 23 clips; the other 7 (pipeline, policy,
+The 3-minute cut uses 18 of the 25 clips; the other 7 (pipeline, policy,
 scores, stress) are extras for a longer version or the docs. Clips are
 referenced by filename in `docs/manim/media/final/`; durations are the
 rendered lengths, so a clip may need a speedup or a hold in the editor.
@@ -63,9 +63,12 @@ rendered lengths, so a clip may need a speedup or a hold in the editor.
 | 11 | "...exact matching." | (ExactMatch end) | — | equality lands |
 | 12 | "...phrase trie over the whole catalog..." | `EntroShopSim_Trie.mp4` | 10.4s | colorful trie, search flashes |
 | 12b | "...regexes for things like `color: x` and budget." | `EntroShopSim_Regex.mp4` | 5.9s | regex matches |
-| 25 | "...an n-ary tree of category properties." | `EntroShopTree_Grow.mp4` | 6.0s | tree grows level by level |
-| 26–29 | "...one chain ... breadcrumb ... why." | `EntroShopTree_Breadcrumb.mp4` | 3.6s | breadcrumb chain turns yellow |
-| 27 | "...Category lookups are O(1)..." | `EntroShopTree_Lookup.mp4` | 2.5s | (optional) lookup dot down the chain |
+| 25 | "...an n-ary tree of category properties, coarse to fine." | `EntroShopTree_Grow.mp4` | 7.1s | tree grows level by level + coarse→fine arrow |
+| 26 | "Every product maps to exactly one chain." | `EntroShopTree_Chains.mp4` | 9.9s | three products, each flashes its own chain |
+| 27 | "...lookups are O(1)..." | `EntroShopTree_Lookup.mp4` | 4.5s | lookup dot down the chain |
+| 27b | "...skip the LLM... zero tokens... most turns." | `EntroShopTree_SkipLLM.mp4` | 5.2s | pool pins, LLM crossed out, 0 tokens |
+| 29 | "...shows its chain as a breadcrumb..." | `EntroShopTree_Breadcrumb.mp4` | 4.9s | breadcrumb strip lands |
+
 | 37–38 | "So, the numbers. Hit rate 100%..." | `EntroShopNumbers_Build.mp4` | 6.5s | table builds, holds for reading |
 | 39–41 | "...TechnicalScore 0.9053... repo..." | `EntroShopNumbers_Highlight.mp4` | 6.0s | winner column + close, holds |
 
@@ -507,18 +510,27 @@ class EntroShopOpen_ScoreTable(Scene):
 
 ### docs/manim/tree.py
 
-Real multi-level tree, 3 phases: Grow, Breadcrumb, Lookup.
+Real multi-level tree, 5 phases covering the 33s Scene-3 VO: Grow, Chains, Lookup, SkipLLM, Breadcrumb.
 
 ```python
-"""Tree clip, modular: growth, breadcrumb, lookup are separate Scenes.
+"""Tree clip, modular, covering the full 33s Scene-3 VO.
 
-A real coarse-to-fine tree: Catalog root, then Women/Men/Kids, then Men's
-subtree with Accessories -> Belts as the highlighted chain.
+VO lines and their scenes:
+  "Under the hood there's an n-ary tree of category properties, coarse to
+   fine."                              -> EntroShopTree_Grow
+  "Every product maps to exactly one chain." -> EntroShopTree_Chains
+  "Category lookups are O(1), and once the tree pins the pool down to a
+   small set, we skip the LLM entirely. Zero tokens, and that's most
+   turns."                              -> EntroShopTree_Lookup + EntroShopTree_SkipLLM
+  "You'll also notice the final pick shows its chain as a breadcrumb, so
+   you can see exactly why we chose it." -> EntroShopTree_Breadcrumb
 
 Render:
     manim render -qh tree.py EntroShopTree_Grow
-    manim render -qh tree.py EntroShopTree_Breadcrumb
+    manim render -qh tree.py EntroShopTree_Chains
     manim render -qh tree.py EntroShopTree_Lookup
+    manim render -qh tree.py EntroShopTree_SkipLLM
+    manim render -qh tree.py EntroShopTree_Breadcrumb
 """
 from manim import *
 
@@ -567,67 +579,161 @@ def make_bg(scene: Scene) -> None:
     scene.add(bg)
 
 
+def add_full_tree(scene: Scene) -> list:
+    """Draw the complete tree statically and return the node boxes."""
+    boxes = [node_box(i) for i in range(len(NODES))]
+    scene.add(*[b for box in boxes for b in box])
+    scene.add(*[edge_line(a, b) for a, b in EDGES])
+    return boxes
+
+
+def caption(scene: Scene, text: str, color=GREEN_E) -> Text:
+    t = Text(text, font_size=28, color=color).to_edge(DOWN, buff=0.7)
+    scene.play(Write(t), run_time=0.5)
+    return t
+
+
 class EntroShopTree_Grow(Scene):
-    """Phase 1: the tree grows level by level, root first."""
+    """VO: n-ary tree of category properties, coarse to fine."""
 
     def construct(self):
         make_bg(self)
         boxes = [node_box(i) for i in range(len(NODES))]
-        # Root.
         self.play(Create(boxes[0][0]), Write(boxes[0][1]), run_time=0.6)
-        # Level 2: Women / Men / Kids with edges from root.
         for i in (1, 2, 3):
             self.play(Create(edge_line(0, i)), run_time=0.2)
             self.play(Create(boxes[i][0]), Write(boxes[i][1]), run_time=0.35)
-        # Level 3: Men's subtree.
         for i in (4, 5, 6):
             self.play(Create(edge_line(2, i)), run_time=0.2)
             self.play(Create(boxes[i][0]), Write(boxes[i][1]), run_time=0.35)
-        # Level 4: Accessories' children.
         for i in (7, 8):
             self.play(Create(edge_line(5, i)), run_time=0.2)
             self.play(Create(boxes[i][0]), Write(boxes[i][1]), run_time=0.35)
+
+        # Coarse -> fine label along the Men branch.
+        arrow = Arrow(boxes[0].get_bottom(), boxes[7].get_top(), color=GREY)
+        lbl = Text("coarse  →  fine", font_size=26, color=GREY).next_to(
+            arrow, LEFT, buff=0.3)
+        self.play(Create(arrow), Write(lbl), run_time=0.6)
+        self.wait(1.5)
+
+
+class EntroShopTree_Chains(Scene):
+    """VO: every product maps to exactly one chain."""
+
+    def construct(self):
+        make_bg(self)
+        boxes = add_full_tree(self)
+
+        # Pick three leaf products; each gets its own chain path flashing.
+        leaves = [7, 8, 4]  # Belts, Hats, Apparel
+        labels = ["belt", "hat", "top"]
+        for leaf, name in zip(leaves, labels):
+            chain = []
+            # Reconstruct path from root to leaf via parents (index-based).
+            # Parents: 1,2,3 -> 0 ; 4,5,6 -> 2 ; 7,8 -> 5.
+            parents = {1: 0, 2: 0, 3: 0, 4: 2, 5: 2, 6: 2, 7: 5, 8: 5}
+            node = leaf
+            while node != 0:
+                chain.append(node)
+                node = parents[node]
+            chain.append(0)
+            chain = chain[::-1]
+
+            # Flash the chain blue, then label the product below.
+            flash = VGroup()
+            for a, b in zip(chain, chain[1:]):
+                e = edge_line(a, b)
+                flash.add(e)
+                self.play(e.animate.set_color(BLUE), run_time=0.2)
+            for idx in chain:
+                self.play(boxes[idx].animate.set_color(BLUE), run_time=0.15)
+            tag = Text(f'"{name}" → one chain', font_size=24, color=BLUE).move_to(
+                boxes[leaf].get_bottom() + DOWN * 0.6)
+            self.play(Write(tag), run_time=0.3)
+            self.wait(0.6)
+            # Reset colors for the next product.
+            for a, b in EDGES:
+                edge_line(a, b).set_color(GREY_B)
+            for i in range(len(NODES)):
+                boxes[i][0].set_color(GREY_B)
+                boxes[i][1].set_color(BLACK)
+            self.play(FadeOut(tag))
+
         self.wait(1.0)
 
 
-class EntroShopTree_Breadcrumb(Scene):
-    """Phase 2: the Catalog -> Men -> Accessories -> Belts chain turns yellow."""
-
-    def construct(self):
-        make_bg(self)
-        boxes = [node_box(i) for i in range(len(NODES))]
-        self.add(*[b for box in boxes for b in box])
-        self.add(*[edge_line(a, b) for a, b in EDGES])
-        for a, b in zip(CHAIN, CHAIN[1:]):
-            self.play(edge_line(a, b).animate.set_color(YELLOW), run_time=0.3)
-            for idx in (a, b):
-                box, text = boxes[idx]
-                self.play(box.animate.set_color(YELLOW),
-                          text.animate.set_color(YELLOW), run_time=0.25)
-        self.wait(1.2)
-
-
 class EntroShopTree_Lookup(Scene):
-    """Phase 3: an O(1) lookup dot races down the highlighted chain."""
+    """VO: category lookups are O(1)."""
 
     def construct(self):
         make_bg(self)
-        boxes = [node_box(i) for i in range(len(NODES))]
-        self.add(*[b for box in boxes for b in box])
-        lines = [edge_line(a, b) for a, b in EDGES]
-        self.add(*lines)
+        boxes = add_full_tree(self)
         for a, b in zip(CHAIN, CHAIN[1:]):
             edge_line(a, b).set_color(YELLOW)
             for idx in (a, b):
                 boxes[idx][0].set_color(YELLOW)
                 boxes[idx][1].set_color(YELLOW)
-        # Dot starts at the root box bottom and follows the chain edges.
+
         dot = Dot(node_box(CHAIN[0]).get_bottom(), color=TEAL)
         self.add(dot)
         for a, b in zip(CHAIN, CHAIN[1:]):
-            line = edge_line(a, b)
-            self.play(MoveAlongPath(dot, line), run_time=0.5)
-        self.wait(1.0)
+            self.play(MoveAlongPath(dot, edge_line(a, b)), run_time=0.5)
+        cap = caption(self, "O(1) per step")
+        self.wait(1.5)
+        self.play(FadeOut(cap))
+
+
+class EntroShopTree_SkipLLM(Scene):
+    """VO: once the tree pins the pool small, skip the LLM. 0 tokens."""
+
+    def construct(self):
+        make_bg(self)
+        boxes = add_full_tree(self)
+
+        # The pool shrinks to the Belts subtree.
+        pool = Text("pool", font_size=26, color=BLACK).move_to(
+            boxes[0].get_top() + UP * 0.8)
+        self.play(Write(pool))
+        for idx in CHAIN[1:]:
+            self.play(boxes[idx][0].animate.set_color(TEAL),
+                      boxes[idx][1].animate.set_color(TEAL), run_time=0.2)
+        small = Text("pinned: 1 subtree", font_size=24, color=TEAL).next_to(
+            pool, RIGHT, buff=0.5)
+        self.play(Write(small), run_time=0.4)
+
+        # LLM box gets crossed out.
+        llm = RoundedRectangle(corner_radius=0.15, width=2.2, height=0.8,
+                               color=GREY).shift(RIGHT * 4.4 + DOWN * 1.6)
+        llm_txt = Text("LLM", font_size=26, color=BLACK).move_to(llm.get_center())
+        self.play(Create(llm), Write(llm_txt), run_time=0.4)
+        cross = Line(llm.get_corner(UL), llm.get_corner(DR), color=RED,
+                     stroke_width=6)
+        self.play(Create(cross), run_time=0.3)
+
+        zero = Text("0 tokens · most turns", font_size=30, color=GREEN_E).to_edge(
+            DOWN, buff=0.7)
+        self.play(Write(zero), run_time=0.5)
+        self.wait(2.0)
+
+
+class EntroShopTree_Breadcrumb(Scene):
+    """VO: the final pick shows its chain as a breadcrumb."""
+
+    def construct(self):
+        make_bg(self)
+        boxes = add_full_tree(self)
+        for a, b in zip(CHAIN, CHAIN[1:]):
+            self.play(edge_line(a, b).animate.set_color(YELLOW), run_time=0.3)
+            for idx in (a, b):
+                self.play(boxes[idx][0].animate.set_color(YELLOW),
+                          boxes[idx][1].animate.set_color(YELLOW), run_time=0.2)
+
+        # Breadcrumb strip at the bottom: Catalog > Men > Accessories > Belts.
+        crumb = Text("Catalog  >  Men  >  Accessories  >  Belts",
+                     font_size=30, color=BLACK).to_edge(DOWN, buff=0.7)
+        self.play(Write(crumb), run_time=0.8)
+        self.wait(2.0)
 ```
 
 ### docs/manim/numbers.py
