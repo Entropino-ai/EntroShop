@@ -18,9 +18,9 @@
 | **MRR** | 0.068 | **0.724** |
 | **MTTC (mean turns to conversion)** | 9.81 | **1.59** |
 | **Efficiency** | 0.119 | **0.9415** |
-| **TechnicalScore** | 0.107 | **0.9055** |
+| **TechnicalScore** | 0.107 | **0.9053** |
 
-*All 200 public sessions hit the hidden target. Recommended mode: online (LLM rerank) as the product-mode ranking and a hedge against paraphrase drift. Measured on the public set, online and offline are equivalent (TS 0.905543 vs 0.905507); the fully offline deterministic fallback (0 tokens, in-memory, no external vector DB) hits every session at zero cost.*
+*All 200 public sessions hit the hidden target. Recommended mode: online (LLM rerank) as the product-mode ranking and a hedge against paraphrase drift. Measured on the public set, online and offline are equivalent (TS 0.905405 vs 0.905305); the fully offline deterministic fallback (0 tokens, in-memory, no external vector DB) hits every session at zero cost.*
 
 ---
 
@@ -68,7 +68,7 @@ curl -L -o data/public_set.jsonl https://raw.githubusercontent.com/TechJam2026/t
 git clone https://github.com/TechJam2026/techjam-conversational-search.git ../techjam-kit
 cp -r starter agent_lib ../techjam-kit/
 cd ../techjam-kit && python3 -m evaluator.local_evaluator
-# (offline fallback) expect Hit@10 1.000, MRR 0.724, MTTC 1.59, TechnicalScore 0.9055
+# (offline fallback) expect Hit@10 1.000, MRR 0.723, MTTC 1.59, TechnicalScore 0.9053
 # set TECHJAM_LLM_* to enable the recommended online rerank (better efficiency)
 
 # 3) interactive demo UI — chat works standalone with just the catalog
@@ -94,7 +94,7 @@ export TECHJAM_LLM_MODEL="deepseek-v4-flash"
   (product-mode ranking; hedge against paraphrase drift on unseen splits).
 - **Offline fallback:** without a key or network, the deterministic core still
   runs and hits every session. Measured on the public set the two modes are
-  equivalent (TechnicalScore 0.905543 online vs 0.905507 offline, same
+  equivalent (TechnicalScore 0.905405 online vs 0.905305 offline, same
   Efficiency); see `docs/05-benchmarks.md`.
 - The organizer may **disable network access for final scoring**. The agent
   then runs the offline fallback automatically at the measured equivalent

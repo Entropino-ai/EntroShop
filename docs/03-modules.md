@@ -9,7 +9,7 @@
 | `agent_lib/retrieve.py` | multi-route retrieval, scoring, cascade relaxation, freeform route with pool |
 | `agent_lib/guide.py` | entropy-guided clarification, convergence policy, hard pool, option labels |
 | `agent_lib/query.py` | free-form query understanding + zh→en dictionary + budget regexes |
-| `agent_lib/tree.py` | n-ary product-property tree: unique per-product chains, product mapping, family detection |
+| `agent_lib/tree.py` | n-ary product-property tree: unique per-product chains, product mapping, family detection, depth-weighted (binary-search) scoring |
 | `agent_lib/dense.py` | TF-IDF dense index (stdlib) |
 | `agent_lib/dense_transformer.py` | MiniLM dense route (optional, cached embeddings) |
 | `agent_lib/llm_rank.py` | optional OpenAI-compatible reranker (failure-safe, ping probe) |
@@ -101,6 +101,15 @@ list.
   deterministic routes)
 - `variants(kw)` → plural forms (public alias used by retrievers to keep
   the category scoring bonus aligned)
+- `depth_weighted_bonus(asin, tokens)` → **binary-search chain scoring**:
+  a token matching a chain segment at depth `d` pins down ~`catalog/2**d`
+  products, so it is credited `log2(catalog_size / subtree_size)` bits;
+  deeper (smaller) subtrees contribute exponentially more, and the gain is
+  invariant to breadcrumb depth above the node. Used by both the
+  competition scorer and the free-chat scorer to resolve near-ties in
+  narrow pools.
+- `subtree_size()` (per node) → cached descendant product count backing the
+  gain computation (no set materialization)
 
 Built once from the frozen catalog (`starter/agent.py`, `demo/server.py`,
 `agent_lib/mcp.py` all attach it); read-only afterwards. `retrieve.py`

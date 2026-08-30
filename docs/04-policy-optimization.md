@@ -39,13 +39,13 @@ exhausted; alternatives front-load `feature` or `material`/`color`.
 
 | Policy | TS | Hit@10 | MRR | MTTC |
 |---|---|---|---|---|
-| `other`-until-exhausted (deployed) | **0.9055** | **1.000** | **0.724** | **1.585** |
-| `other` ×3 then null | 0.9055 | 1.000 | 0.724 | 1.585 |
+| `other`-until-exhausted (deployed) | **0.9053** | **1.000** | **0.723** | **1.585** |
+| `other` ×3 then null | 0.9053 | 1.000 | 0.723 | 1.585 |
 | `feature`-first | 0.9036 | 1.000 | 0.720 | 1.615 |
 | `material`/`color`-first | 0.9000 | 1.000 | 0.710 | 1.645 |
 
 **Result:** the deployed `other`-until-exhausted plan is the offline argmax
-(TS 0.9055). Front-loading `feature` or `material`/`color` asks *hurts*:
+(TS 0.9053). Front-loading `feature` or `material`/`color` asks *hurts*:
 every `ask_attribute` slot spent on a specific facet is one fewer
 "two undisclosed constraints" disclosure, so the pool shrinks slower and
 MTTC / MRR degrade. The search confirms the deployed policy — no change

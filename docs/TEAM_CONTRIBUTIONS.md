@@ -19,7 +19,7 @@ Non-code work is listed where it maps to specific deliverables.
   retrieval and ranking (exact-phrase conjunction, exact coarse-category
   match, dense routes, popularity prior), entropy-guided clarification, hard
   10-turn clamp. Led the public-set score from the BM25 baseline (0.107) to
-  0.9055 TechnicalScore.
+  0.9053 TechnicalScore.
 - Official submission package (required layout) with the README disclosures
   (network policy, cost, latency, token usage).
 - Optional LLM rerank (OpenAI-compatible, DeepSeek measured) with liveness

@@ -27,12 +27,17 @@ W_BUDGET = 40.0
 W_CAT = 60.0
 W_CAT_SUBSTR = 20.0
 W_TITLE = 16.0
+W_CORPUS = 8.0  # full-text overlap of disclosed constraint words (target
+                # fingerprint; resolves near-ties inside info-bound pools)
 W_CAT_TITLE = 3.0
 W_TAG = 0.0
 W_RATING = 4.0
 W_POP = 8.0  # log popularity prior: purchase-record targets skew popular
 W_TFIDF = 30.0  # dense-route cosine similarity (only applied when pool is large)
 W_STYLE = 20.0  # rating_style consistency: "usually positive" users buy high-rated items
+W_DEPTH = 0.25   # depth-weighted chain bonus scale (binary-search thinking: a
+                # match at depth d pins ~catalog/2^d products, so deeper
+                # matches carry exponentially more information)
 DENSE_MIN_POOL = 200   # apply the dense route only above this pool size
 DENSE_MIN_HISTORY = 1  # apply only once this many user messages arrived
 
@@ -105,6 +110,7 @@ def _score(
     query_tokens: set[str],
     constraint_tokens: set[str],
     dense_map: dict[str, float] | None = None,
+    tree=None,
 ) -> float:
     score = 0.0
     product_phrases = index.product_phrases[asin]
@@ -134,6 +140,12 @@ def _score(
     score += W_TITLE * min(len(overlap), 8)
     cat_overlap = query_tokens & index.title_tokens[asin]
     score += W_CAT_TITLE * min(len(cat_overlap), 8)
+    # full-corpus overlap of disclosed constraint words: the target's own
+    # features/details are its fingerprint, so corpus-level matches resolve
+    # near-ties inside info-bound pools (smaller weight than title — corpus
+    # includes the boilerplate the whole pool shares)
+    corpus_overlap = constraint_tokens & index.corpus_tokens.get(asin, frozenset())
+    score += W_CORPUS * min(len(corpus_overlap), 16)
     for tag in state.user_profile.get("preference_tags", []):
         if tag and tag.lower() in index.corpus[asin].lower():
             score += W_TAG
@@ -146,6 +158,11 @@ def _score(
         score += W_STYLE
     if dense_map is not None:
         score += W_TFIDF * dense_map.get(asin, 0.0)
+    # Binary-search thinking: deeper chain matches pin down exponentially
+    # smaller subsets, so they contribute more (see ProductTree docstring).
+    if tree is not None and (constraint_tokens or query_tokens):
+        tokens = constraint_tokens | query_tokens
+        score += W_DEPTH * tree.depth_weighted_bonus(asin, tokens)
     return score
 
 
@@ -230,7 +247,7 @@ def retrieve(
     ranked = sorted(
         pool,
         key=lambda asin: (
-            _score(asin, index, state, query_tokens, constraint_tokens, dense_map),
+            _score(asin, index, state, query_tokens, constraint_tokens, dense_map, tree),
             index.ratings[asin][1],  # rating_number tiebreak
         ),
         reverse=True,
@@ -394,6 +411,14 @@ def _freeform_rank(query, index: CatalogIndex, dense, tree=None):
             value += 3.0 * min(rating, 5.0)
         if rating_number:
             value += 3.0 * min(9.5, math.log1p(rating_number))
+        # Binary-search thinking: a free-chat keyword matching a DEEP chain
+        # segment ("leather" in "Leather Belts") pins down a far smaller
+        # subset than a shallow one ("belt" in "Belts"), so it contributes
+        # more. Applied only when the tree is available (tree-first mode).
+        if tree is not None:
+            tokens = set(query.keywords) | set(query.materials) | set(query.colors)
+            if tokens:
+                value += W_DEPTH * tree.depth_weighted_bonus(asin, tokens)
         return value
 
     # cheap pre-filter for huge pools: skip the expensive regex scorer for

@@ -30,15 +30,20 @@ The tree is built once from the frozen catalog and is read-only afterwards.
 """
 from __future__ import annotations
 
+import math
 from typing import Iterator
 
 from .index import CatalogIndex
+
+# token cache for chain segments (chain values repeat heavily across the
+# catalog; caching keeps depth-weighted scoring O(1) per segment)
+_segment_token_cache: dict[str, frozenset[str]] = {}
 
 
 class _Node:
     """One property node of the tree."""
 
-    __slots__ = ("value", "parent", "children", "products", "_depth", "_subtree")
+    __slots__ = ("value", "parent", "children", "products", "_depth", "_subtree", "_size")
 
     def __init__(self, value: str, parent: "_Node | None" = None) -> None:
         self.value = value
@@ -47,6 +52,7 @@ class _Node:
         self.products: list[str] = []
         self._depth = (parent._depth + 1) if parent is not None else 0
         self._subtree: set[str] | None = None  # lazily filled; tree is read-only
+        self._size: int | None = None
 
     @property
     def depth(self) -> int:
@@ -74,6 +80,16 @@ class _Node:
                 out |= child.subtree_products()
             self._subtree = out
         return self._subtree
+
+    def subtree_size(self) -> int:
+        """Number of concrete products under this node (its own plus all
+        descendants). O(1) after first call; no set materialization."""
+        if self._size is None:
+            total = len(self.products)
+            for child in self.children.values():
+                total += child.subtree_size()
+            self._size = total
+        return self._size
 
 
 class ProductTree:
@@ -209,6 +225,49 @@ class ProductTree:
             for node in self.value_index.get(variant, []):
                 out |= node.subtree_products()
         return out
+
+    def depth_weighted_bonus(self, asin: str, tokens: set[str]) -> float:
+        """Binary-search contribution of a product's chain.
+
+        The tree is a decision tree over category properties: each level
+        splits the candidate space, so a match on a chain segment at depth
+        ``d`` pins down a subset of roughly ``catalog / 2**d`` products. The
+        information gain of that match is therefore
+        ``log2(catalog_size / subtree_size)`` — deeper (smaller) subtrees
+        carry exponentially more bits, which is exactly the binary-search
+        intuition. We sum the gain over every chain segment whose property
+        shares a token with ``tokens``.
+
+        Unlike a raw ``depth`` term, the gain is invariant to how long the
+        root path is: two products whose chains reach the same node earn the
+        same contribution regardless of breadcrumb depth above it.
+
+        Returns 0.0 for products without a chain (unindexed products get a
+        neutral score rather than being penalized)."""
+        chain = self._asin_chain.get(asin)
+        if not chain:
+            return 0.0
+        catalog_n = self.root.subtree_size()
+        if catalog_n < 1:
+            return 0.0
+        bonus = 0.0
+        node = self.root
+        for segment in chain:
+            child = node.children.get(segment)
+            if child is None:
+                break
+            node = child
+            seg_tokens = _segment_token_cache.get(segment)
+            if seg_tokens is None:
+                seg_tokens = frozenset(
+                    token for token in segment.lower().replace("&", " ").split()
+                )
+                _segment_token_cache[segment] = seg_tokens
+            if seg_tokens & tokens:
+                size = node.subtree_size()
+                if size > 0:
+                    bonus += math.log2(max(1.0, catalog_n / size))
+        return bonus
 
     def subtree_for_keywords(self, keywords: list[str]) -> tuple[set[str], set[str]]:
         """Tree-first category candidates for a keyword list.

@@ -30,10 +30,10 @@ Expected output (public set, 200 sessions):
 | Metric | Value |
 |---|---|
 | Hit Rate@10 | 1.000 |
-| MRR | 0.724 |
+| MRR | 0.723 |
 | MTTC | 1.59 |
 | Efficiency | 0.9415 |
-| TechnicalScore | 0.9055 |
+| TechnicalScore | 0.9053 |
 
 Or run the self-contained evaluation from this repo (symlinked data):
 

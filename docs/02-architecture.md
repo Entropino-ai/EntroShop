@@ -131,6 +131,20 @@ regex. The convergence gate judges on the exact hard pool (not the
 free-form top-200 sample), so tree-resolved queries never trigger a slow
 network call.
 
+**Depth-weighted scoring (binary-search thinking).** The tree is a decision
+tree: each level splits the candidate space roughly in half, so a match on a
+chain segment at depth `d` pins down a subset of about
+`catalog / 2**d` products. `depth_weighted_bonus` therefore credits a match
+with `log2(catalog_size / subtree_size)` — deeper (smaller) subtrees carry
+exponentially more bits, exactly like binary search where each comparison
+halves the remaining space. Because the gain is measured on subtree size
+rather than raw depth, two products reaching the same node earn the same
+contribution regardless of breadcrumb length above it. The term is added
+to both the competition scorer (disclosed constraint words matching deep
+chain segments, e.g. "leather" inside "Leather Belts") and the free-chat
+scorer, resolving near-ties inside narrow pools that previously fell just
+outside the top-10.
+
 ## Free chat (demo)
 
 The demo's *Free chat* mode runs the same agent but against the live chat

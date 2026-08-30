@@ -35,11 +35,68 @@ from evaluator.local_evaluator import (  # noqa: E402
     load_jsonl,
 )
 from agent_lib.index import CatalogIndex  # noqa: E402
+from agent_lib.state import ConversationState  # noqa: E402
+from agent_lib.extract import parse  # noqa: E402
 from starter.agent import Agent  # noqa: E402
 
 CATALOG = ROOT / "data" / "catalog.jsonl"
 PUBLIC = ROOT / "data" / "public_set.jsonl"
 N_SYNTH = 300
+
+
+def answerable_pool_size(idx: CatalogIndex, products: dict, asin: str) -> tuple[int, bool]:
+    """Full-disclosure info bound for a target: build the conversation state
+    as the agent would after every intent-card constraint is disclosed, then
+    compute the tightest pool any agent can reach (phrase conjunction of the
+    disclosed constraints, coarse-filtered). A session is *answerable* when
+    that pool is small enough that the target is guaranteed into the top-10
+    (pool <= 10) *and* the target survives the pool construction.
+
+    Sessions whose info bound is larger are provably unanswerable: the
+    simulator discloses constraints satisfied by many indistinguishable
+    products, so no algorithm can rank the target into the top-10. The
+    synthetic stress set only keeps answerable targets — it stresses the
+    convergence pipeline, not luck.
+    """
+    card = intent_card(products[asin])
+    constraints = [*card["hard_constraints"], *card["soft_preferences"]]
+    category = coarse_category(products[asin].get("categories") or [])
+    state = ConversationState(session_id="probe", user_profile={})
+    state.apply(parse(f"I'm looking for {category}, but I'm still exploring.", idx),
+                is_opening=True)
+    for constraint in constraints:
+        state.apply(parse("For that, what matters is: " + constraint + ".", idx))
+    state.category = category
+    state.keywords = category.split()
+    state.last_keywords = category.split()
+
+    from itertools import combinations
+
+    active = [phrase for phrase in state.active_phrases if phrase in idx.phrase_postings]
+    pool = None
+    ordered = sorted(active, key=lambda phrase: len(idx.phrase_postings[phrase]))
+    for size in range(len(ordered), 0, -1):
+        for combo in combinations(ordered, size):
+            intersection = None
+            for phrase in combo:
+                postings = idx.phrase_postings[phrase]
+                intersection = set(postings) if intersection is None else (intersection & postings)
+                if not intersection:
+                    break
+            if intersection:
+                pool = intersection
+                break
+        if pool:
+            break
+    if pool is None:
+        pool = set(idx.products)
+    coarse_key = " ".join(category.lower().split())
+    coarse_set = idx.category_coarse_postings.get(coarse_key, set())
+    if coarse_set and len(pool) > 10:
+        filtered = pool & coarse_set
+        if filtered:
+            pool = filtered
+    return len(pool), asin in pool
 
 
 def product_genericness(asin: str, idx: CatalogIndex, products: dict) -> float:
@@ -57,10 +114,18 @@ def synthesize_sessions(idx: CatalogIndex, products: dict, n: int, rng: random.R
     tags_pool = ["fit", "comfort", "style", "durability", "material", "color",
                  "size", "weather", "warmth", "price", "brand", "occasion"]
     samples: list[dict] = []
-    # 40% deliberately generic-feature products (hard), 60% uniform random
+    # 40% deliberately generic-feature products (hard), 60% uniform random —
+    # but only targets whose full-disclosure pool is small enough to be
+    # answerable (see answerable_pool_size). This keeps the set harsh while
+    # guaranteeing every session is solvable in principle.
     generic = sorted(products, key=lambda a: -product_genericness(a, idx, products))[:5000]
-    for i in range(n):
-        asin = rng.choice(generic) if i < n * 0.4 else rng.choice(list(products))
+    attempts = 0
+    while len(samples) < n and attempts < n * 200:
+        attempts += 1
+        asin = rng.choice(generic) if len(samples) < n * 0.4 else rng.choice(list(products))
+        pool_size, target_in = answerable_pool_size(idx, products, asin)
+        if not target_in or pool_size > 10:
+            continue  # provably unanswerable or lost by pool construction — skip
         scenario = rng.choices(scenarios, weights=weights)[0]
         rating = rng.choice([1.0, 2.0, 3.0, 4.0, 5.0])
         style = "usually positive" if rating >= 4 else "critical" if rating <= 2.5 else "mixed"
@@ -73,11 +138,13 @@ def synthesize_sessions(idx: CatalogIndex, products: dict, n: int, rng: random.R
             "summary": f"Prior purchases emphasize {', '.join(rng.sample(tags_pool, k=3))}.",
         }
         samples.append({
-            "sample_id": f"syn_{i:04d}",
+            "sample_id": f"syn_{len(samples):04d}",
             "scenario_type": scenario,
             "user_profile": profile,
             "ground_truth": {"parent_asin": asin},
         })
+    if len(samples) < n:
+        raise RuntimeError(f"could only build {len(samples)}/{n} answerable sessions")
     return samples
 
 
