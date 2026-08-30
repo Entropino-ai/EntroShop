@@ -41,11 +41,12 @@ Non-code work is listed where it maps to specific deliverables.
   (written description + tech stack); refreshed all scores from fresh
   official-evaluator and stress runs.
 
-### YH122432
+### hsen (GitHub: YH122432)
 
 - Project tooling and `.venv` dev-environment setup.
 - Guide-chip selection fix: stopped `budget` leaking as a keyword; added chip
   feedback.
+- Recorded the 3-minute YouTube demo video for the Devpost submission.
 
 ### 残酷な天使 (GitHub: Xxp20080101)
 
