@@ -1,43 +1,67 @@
-"""MCP clip: four tools exposed over stdio/HTTP to any host.
+"""MCP clip, modular: core→tools build, then host logos.
 
-Mirrors docs/03-modules.md (agent_lib/mcp.py) and the README MCP section.
 Render:
-    manim render -qh mcp.py EntroShopMCP
+    manim render -qh mcp.py EntroShopMCP_Build
+    manim render -qh mcp.py EntroShopMCP_Hosts
 """
 from manim import *
 
+TOOLS = ["search_products", "product_details", "clarify", "tree_chain"]
 
-class EntroShopMCP(Scene):
-    """A core box feeds four tool cards; host logos connect from the side."""
+
+def make_bg(scene: Scene) -> None:
+    bg = Rectangle(width=14.22, height=8.0, fill_color=WHITE,
+                   fill_opacity=1.0, stroke_width=0).set_z_index(-10)
+    scene.add(bg)
+
+
+def build_core() -> VGroup:
+    core = RoundedRectangle(corner_radius=0.2, width=2.6, height=1.2,
+                            color=BLUE_D)
+    label = Text("deterministic core", font_size=24, color=BLACK).move_to(
+        core.get_center())
+    return VGroup(core, label)
+
+
+def build_tools() -> VGroup:
+    cards = VGroup()
+    for i, name in enumerate(TOOLS):
+        card = RoundedRectangle(corner_radius=0.15, width=3.4, height=0.7,
+                                color=GREY).shift(
+            DOWN * 1.1 + RIGHT * (i - 1.5) * 3.6)
+        label = Text(name, font_size=22, color=BLACK).move_to(card.get_center())
+        cards.add(VGroup(card, label))
+    return cards
+
+
+class EntroShopMCP_Build(Scene):
+    """Phase 1: core box, four tool cards, wires between them."""
 
     def construct(self):
-        # Explicit light background: the cairo renderer on some macOS setups
-        # paints the default dark frame as pure black, so scenes carry their
-        # own background and use dark foreground elements.
-        bg = Rectangle(width=14.22, height=8.0, fill_color=WHITE,
-                       fill_opacity=1.0, stroke_width=0).set_z_index(-10)
-        self.add(bg)
-        core = RoundedRectangle(corner_radius=0.2, width=2.6, height=1.2,
-                                color=BLUE_D)
-        core_label = Text("deterministic core", font_size=24).move_to(core.get_center())
+        make_bg(self)
+        core, core_label = build_core()
         self.play(Create(core), Write(core_label))
-
-        tools = ["search_products", "product_details", "clarify", "tree_chain"]
-        cards = VGroup()
-        for i, name in enumerate(tools):
-            card = RoundedRectangle(corner_radius=0.15, width=3.4, height=0.7,
-                                    color=GREY_B).shift(
-                DOWN * 1.1 + RIGHT * (i - 1.5) * 3.6)
-            label = Text(name, font_size=22).move_to(card.get_center())
-            cards.add(VGroup(card, label))
-            self.play(Create(card), Write(label), run_time=0.35)
-
-        # Wires from core to each tool.
+        cards = build_tools()
+        for card in cards:
+            self.play(Create(card[0]), Write(card[1]), run_time=0.35)
         for card in cards:
             wire = Line(core.get_bottom(), card.get_top(), color=TEAL)
             self.play(Create(wire), run_time=0.25)
+        self.wait(0.8)
 
-        # Hosts: Claude, Cursor, VS Code, anything.
+
+class EntroShopMCP_Hosts(Scene):
+    """Phase 2: any MCP host line appears under the wired tools."""
+
+    def construct(self):
+        make_bg(self)
+        core, core_label = build_core()
+        self.add(core, core_label)
+        cards = build_tools()
+        self.add(cards)
+        for card in cards:
+            wire = Line(core.get_bottom(), card.get_top(), color=TEAL)
+            self.add(wire)
         hosts = Text("Claude  ·  Cursor  ·  VS Code  ·  any MCP host",
                      font_size=26, color=YELLOW).to_edge(DOWN)
         self.play(Write(hosts))

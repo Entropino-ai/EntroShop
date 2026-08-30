@@ -7,28 +7,27 @@ convergence, the product tree, the score table) are rendered as Manim
 animations instead of raw screen capture; the code for each scene is at
 the bottom of this file.
 
-Eight scenes are produced (three for the video script, five covering
-the non-demo docs — architecture pipeline, convergence policy, MCP
-layer, score bars, stress battery):
+The scenes are **modular**: each phase is its own Scene class and
+renders to its own clip, so the editor can assemble the 3-minute video
+from the exact shots it needs. 19 clips across 8 source files:
 
-- `docs/manim/convergence.py` — open: 50,000 points collapse to one
-- `docs/manim/tree.py` — product-property tree growth + breadcrumb
-- `docs/manim/numbers.py` — benchmark table build
-- `docs/manim/pipeline.py` — four-stage turn loop (docs/02)
-- `docs/manim/convergence_policy.py` — pool vs turn, 10-turn budget (docs/02)
-- `docs/manim/mcp.py` — core → four tools → hosts (docs/03, README MCP)
-- `docs/manim/scores.py` — BM25 vs EntroShop bars (docs/05)
-- `docs/manim/stress.py` — 300 answerable sessions, 0 misses (STRESS_TEST)
+- `convergence.py` — 5 phases: Cloud, Target, Rings, Collapse, Score
+- `tree.py` — 3 phases: Grow, Breadcrumb, Lookup
+- `numbers.py` — 2 phases: Build, Highlight
+- `pipeline.py` — 2 phases: Build, Loop (docs/02)
+- `convergence_policy.py` — 2 phases: Curve, Wall (docs/02)
+- `mcp.py` — 2 phases: Build, Hosts (docs/03, README MCP)
+- `scores.py` — 1 clip: bars (docs/05)
+- `stress.py` — 2 phases: Grid, Banner (STRESS_TEST)
 
-Rendered 1080p clips are collected in `docs/manim/media/final/`. Render
-from scratch with Manim Community Edition:
+Rendered 1080p60 clips are collected in `docs/manim/media/final/` (19
+files, ~3-5 s each). Render from scratch with
+`docs/manim/render_all.sh`, or render individual scenes:
 
 ```bash
-pip install manim          # plus system deps: pkg-config, cairo, pango, ffmpeg
-manim render -qh docs/manim/convergence.py EntroShopConvergence
-manim render -qh docs/manim/tree.py EntroShopTree
-manim render -qh docs/manim/numbers.py EntroShopNumbers
-# -q h = 1080p; drop -qh to render fast previews
+manim render -qh docs/manim/convergence.py EntroShopOpen_Cloud
+manim render -qh docs/manim/tree.py EntroShopTree_Grow
+# full list: docs/manim/render_all.sh
 ```
 
 Note: scenes paint their own WHITE background and use dark foreground
@@ -120,108 +119,171 @@ speedup or a hold in the editor to land on its beat.
 
 ### docs/manim/convergence.py
 
-Open clip: 50,000 catalog points collapse to a single target.
+Open clip, 5 phases: Cloud, Target, Rings, Collapse, Score.
 
 ```python
-"""Open clip: 50,000 catalog points collapse to a single target.
+"""Open clip, modular: each phase is its own Scene and renders to its own mp4.
 
-Render:
-    manim render -qh convergence.py EntroShopConvergence
+Render all (or just the ones you need):
+    manim render -qh convergence.py EntroShopOpen_Cloud
+    manim render -qh convergence.py EntroShopOpen_Target
+    manim render -qh convergence.py EntroShopOpen_Rings
+    manim render -qh convergence.py EntroShopOpen_Collapse
+    manim render -qh convergence.py EntroShopOpen_Score
 """
 from manim import *
 import numpy as np
 
+RNG = np.random.default_rng(20260827)
+# 8,000 dots reads as a dense 50k swarm at this dot size and renders fast.
+PTS = RNG.uniform(-6.4, 6.4, size=(8000, 2))
+TARGET_IDX = 271
 
-class EntroShopConvergence(Scene):
-    """50k dots → one bright target → ten inward rings → all sweep in."""
+
+def make_bg(scene: Scene) -> None:
+    """White background. The cairo renderer paints manim's default dark
+    frame as pure black on some macOS setups, so every scene adds its own."""
+    bg = Rectangle(width=14.22, height=8.0, fill_color=WHITE,
+                   fill_opacity=1.0, stroke_width=0).set_z_index(-10)
+    scene.add(bg)
+
+
+def make_cloud() -> VGroup:
+    return VGroup(*[Dot([p[0], p[1], 0], radius=0.015, color=GREY_B)
+                    for p in PTS])
+
+
+class EntroShopOpen_Cloud(Scene):
+    """Phase 1: the 50,000-item swarm fades in and holds."""
 
     def construct(self):
-        # Explicit light background: the cairo renderer on some macOS setups
-        # paints the default dark frame as pure black, so scenes carry their
-        # own background and use dark foreground elements.
-        bg = Rectangle(width=14.22, height=8.0, fill_color=WHITE,
-                       fill_opacity=1.0, stroke_width=0).set_z_index(-10)
-        self.add(bg)
+        make_bg(self)
+        self.play(FadeIn(make_cloud(), run_time=1.5))
+        self.wait(1.0)
 
-        rng = np.random.default_rng(20260827)
-        # 8,000 dots is visually identical to 50k at this dot size and renders
-        # in reasonable time; the VO still says "50,000".
-        pts = rng.uniform(-6.4, 6.4, size=(8000, 2))
-        cloud = VGroup(*[Dot([p[0], p[1], 0], radius=0.015, color=GREY_B)
-                         for p in pts])
-        self.play(FadeIn(cloud, run_time=2.0))
 
-        # "one product we have to find": brighten a single point.
-        idx = 271
-        target = Dot([pts[idx][0], pts[idx][1], 0], radius=0.05, color=RED)
-        self.play(Transform(cloud[idx], target), run_time=1.0)
+class EntroShopOpen_Target(Scene):
+    """Phase 2: one hidden target brightens red among the swarm."""
 
-        # Ten turns: 10 inward waves, each one "a question".
+    def construct(self):
+        make_bg(self)
+        cloud = make_cloud()
+        self.add(cloud)
+        t = PTS[TARGET_IDX]
+        target = Dot([t[0], t[1], 0], radius=0.05, color=RED)
+        self.play(Transform(cloud[TARGET_IDX], target), run_time=1.0)
+        self.wait(1.0)
+
+
+class EntroShopOpen_Rings(Scene):
+    """Phase 3: ten inward rings, each one a question we get to ask."""
+
+    def construct(self):
+        make_bg(self)
         turns = Text("10 turns", color=BLACK).to_edge(UP)
         self.play(Write(turns))
         for i in range(10):
             radius = 6.4 - i * 0.55
             ring = Circle(radius=radius, color=TEAL, stroke_width=1.5)
-            self.play(Create(ring), run_time=0.25)
-            self.play(FadeOut(ring), run_time=0.15)
+            self.play(Create(ring), run_time=0.22)
+            self.play(FadeOut(ring), run_time=0.13)
+        self.wait(0.5)
 
-        # Convergence: everything sweeps into the target.
-        self.play(cloud.animate.move_to(target.get_center()), run_time=2.0)
-        self.play(FadeOut(cloud), FadeOut(turns))
 
-        # The score punchline.
+class EntroShopOpen_Collapse(Scene):
+    """Phase 4: the whole swarm sweeps into the single target."""
+
+    def construct(self):
+        make_bg(self)
+        cloud = make_cloud()
+        self.add(cloud)
+        t = PTS[TARGET_IDX]
+        target = Dot([t[0], t[1], 0], radius=0.05, color=RED)
+        self.add(target)
+        self.play(cloud.animate.move_to(target.get_center()), run_time=1.8)
+        self.play(FadeOut(cloud), run_time=0.4)
+        self.wait(0.8)
+
+
+class EntroShopOpen_Score(Scene):
+    """Phase 5: the score punchline fades in and holds."""
+
+    def construct(self):
+        make_bg(self)
         score = Text("200/200  ·  1.59 turns  ·  0 tokens",
-                     color=GREEN).scale(0.8)
-        self.play(Write(score))
+                     color=GREEN_E).scale(0.8)
+        self.play(Write(score), run_time=1.0)
         self.wait(1.5)
 ```
 
 ### docs/manim/tree.py
 
-Category tree grows, breadcrumb highlights, O(1) lookup flash.
+Tree clip, 3 phases: Grow, Breadcrumb, Lookup.
 
 ```python
-"""Tree clip: category tree grows, a lookup path flashes, breadcrumb shows.
+"""Tree clip, modular: growth, breadcrumb, lookup are separate Scenes.
 
 Render:
-    manim render -qh tree.py EntroShopTree
+    manim render -qh tree.py EntroShopTree_Grow
+    manim render -qh tree.py EntroShopTree_Breadcrumb
+    manim render -qh tree.py EntroShopTree_Lookup
 """
 from manim import *
 
 
-class EntroShopTree(Scene):
-    """Coarse-to-fine tree growth plus the final breadcrumb highlight."""
+def make_tree():
+    root = Text("Catalog", color=BLACK).move_to(UP * 3)
+    mid = Text("Men", color=BLACK).next_to(root, DOWN, buff=0.9)
+    leaf = Text("Belts", color=BLACK).next_to(mid, DOWN, buff=0.9)
+    edges = VGroup(
+        Line(root.get_bottom(), mid.get_top(), color=GREY),
+        Line(mid.get_bottom(), leaf.get_top(), color=GREY),
+    )
+    return root, mid, leaf, edges
+
+
+def make_bg(scene: Scene) -> None:
+    bg = Rectangle(width=14.22, height=8.0, fill_color=WHITE,
+                   fill_opacity=1.0, stroke_width=0).set_z_index(-10)
+    scene.add(bg)
+
+
+class EntroShopTree_Grow(Scene):
+    """Phase 1: the coarse-to-fine tree grows top-down."""
 
     def construct(self):
-        root = Text("Catalog").move_to(UP * 3)
-        mid = Text("Men").next_to(root, DOWN, buff=0.9)
-        leaf = Text("Belts").next_to(mid, DOWN, buff=0.9)
-
-        # Explicit light background: the cairo renderer on some macOS setups
-        # paints the default dark frame as pure black, so scenes carry their
-        # own background and use dark foreground elements.
-        bg = Rectangle(width=14.22, height=8.0, fill_color=WHITE,
-                       fill_opacity=1.0, stroke_width=0).set_z_index(-10)
-        self.add(bg)
+        make_bg(self)
+        root, mid, leaf, edges = make_tree()
         self.play(Write(root))
         self.play(Write(mid))
         self.play(Write(leaf))
-        edges = VGroup(
-            Line(root.get_bottom(), mid.get_top(), color=GREY),
-            Line(mid.get_bottom(), leaf.get_top(), color=GREY_B),
-        )
         self.play(Create(edges))
+        self.wait(1.0)
 
-        # Breadcrumb: highlight root -> leaf in yellow.
+
+class EntroShopTree_Breadcrumb(Scene):
+    """Phase 2: the final pick's root→leaf chain highlights yellow."""
+
+    def construct(self):
+        make_bg(self)
+        root, mid, leaf, edges = make_tree()
+        self.add(root, mid, leaf, edges)
         self.play(edges.animate.set_color(YELLOW))
         self.play(
             root.animate.set_color(YELLOW),
             mid.animate.set_color(YELLOW),
             leaf.animate.set_color(YELLOW),
         )
-        self.wait(1.0)
+        self.wait(1.2)
 
-        # O(1) lookup flash: a dot races down the path, one edge at a time.
+
+class EntroShopTree_Lookup(Scene):
+    """Phase 3: an O(1) lookup dot races down the chain, edge by edge."""
+
+    def construct(self):
+        make_bg(self)
+        root, mid, leaf, edges = make_tree()
+        self.add(root, mid, leaf, edges)
         dot = Dot(root.get_bottom(), color=TEAL)
         self.play(MoveAlongPath(dot, edges[0]), run_time=0.6)
         self.play(MoveAlongPath(dot, edges[1]), run_time=0.6)
@@ -230,44 +292,62 @@ class EntroShopTree(Scene):
 
 ### docs/manim/numbers.py
 
-Benchmark table builds row by row, winner column highlighted.
+Score table, 2 phases: Build, Highlight.
 
 ```python
-"""Close clip: benchmark table builds row by row, winner highlighted.
+"""Score table clip, modular: build rows, then highlight the winner column.
 
 Render:
-    manim render -qh numbers.py EntroShopNumbers
+    manim render -qh numbers.py EntroShopNumbers_Build
+    manim render -qh numbers.py EntroShopNumbers_Highlight
 """
 from manim import *
 
+ROWS = [
+    ("Metric", "BM25 baseline", "EntroShop"),
+    ("Hit rate@10", "0.125", "1.000"),
+    ("MRR", "0.068", "0.723"),
+    ("MTTC", "9.81", "1.59"),
+    ("TechnicalScore", "0.107", "0.9053"),
+]
 
-class EntroShopNumbers(Scene):
-    """Score table appears row by row; the EntroShop column goes green."""
+
+def make_bg(scene: Scene) -> None:
+    bg = Rectangle(width=14.22, height=8.0, fill_color=WHITE,
+                   fill_opacity=1.0, stroke_width=0).set_z_index(-10)
+    scene.add(bg)
+
+
+def build_table() -> VGroup:
+    table = VGroup()
+    for r, row in enumerate(ROWS):
+        cells = VGroup()
+        for c, text in enumerate(row):
+            cell = Text(text, font_size=28, color=BLACK).move_to(
+                RIGHT * (c - 1) * 2.6 + DOWN * r * 0.7)
+            cells.add(cell)
+        table.add(cells)
+    return table
+
+
+class EntroShopNumbers_Build(Scene):
+    """Phase 1: the benchmark table builds row by row."""
 
     def construct(self):
-        # Explicit light background: the cairo renderer on some macOS setups
-        # paints the default dark frame as pure black, so scenes carry their
-        # own background and use dark foreground elements.
-        bg = Rectangle(width=14.22, height=8.0, fill_color=WHITE,
-                       fill_opacity=1.0, stroke_width=0).set_z_index(-10)
-        self.add(bg)
-        rows = [
-            ("Metric",      "BM25 baseline",  "EntroShop"),
-            ("Hit rate@10", "0.125",          "1.000"),
-            ("MRR",         "0.068",          "0.723"),
-            ("MTTC",        "9.81",           "1.59"),
-            ("TechnicalScore", "0.107",       "0.9053"),
-        ]
-        table = VGroup()
-        for r, row in enumerate(rows):
-            cells = VGroup()
-            for c, text in enumerate(row):
-                cell = Text(text, font_size=28).move_to(
-                    RIGHT * (c - 1) * 2.6 + DOWN * r * 0.7)
-                cells.add(cell)
-            table.add(cells)
+        make_bg(self)
+        table = build_table()
+        for cells in table:
             self.play(FadeIn(cells), run_time=0.35)
-        # Highlight the EntroShop column.
+        self.wait(0.8)
+
+
+class EntroShopNumbers_Highlight(Scene):
+    """Phase 2: the EntroShop column turns green and holds."""
+
+    def construct(self):
+        make_bg(self)
+        table = build_table()
+        self.add(table)
         for row in table:
             row[2].set_color(GREEN_E)
         self.wait(1.5)
@@ -275,92 +355,119 @@ class EntroShopNumbers(Scene):
 
 ### docs/manim/pipeline.py
 
-Four-stage turn loop: parse, state, retrieve, decide (docs/02).
+Architecture loop, 2 phases: Build, Loop.
 
 ```python
-"""Architecture clip: message -> parse -> state -> retrieve -> decide.
+"""Architecture clip, modular: build the loop, then flash one turn.
 
-Mirrors docs/02-architecture.md "Pipeline". Render:
-    manim render -qh pipeline.py EntroShopPipeline
+Render:
+    manim render -qh pipeline.py EntroShopPipeline_Build
+    manim render -qh pipeline.py EntroShopPipeline_Loop
 """
 from manim import *
 
 
-class EntroShopPipeline(Scene):
-    """The four-stage turn loop, shown as boxes with a token counter."""
+def make_bg(scene: Scene) -> None:
+    bg = Rectangle(width=14.22, height=8.0, fill_color=WHITE,
+                   fill_opacity=1.0, stroke_width=0).set_z_index(-10)
+    scene.add(bg)
+
+
+def build_stages() -> VGroup:
+    stages = ["parse", "state", "retrieve", "decide"]
+    boxes = VGroup()
+    for i, name in enumerate(stages):
+        box = Rectangle(width=2.2, height=1.0, color=BLUE_D).shift(
+            RIGHT * (i - 1.5) * 2.6)
+        label = Text(name, font_size=30, color=BLACK).move_to(box.get_center())
+        boxes.add(VGroup(box, label))
+    return boxes
+
+
+class EntroShopPipeline_Build(Scene):
+    """Phase 1: the four stages appear with arrows between them."""
 
     def construct(self):
-        # Explicit light background: the cairo renderer on some macOS setups
-        # paints the default dark frame as pure black, so scenes carry their
-        # own background and use dark foreground elements.
-        bg = Rectangle(width=14.22, height=8.0, fill_color=WHITE,
-                       fill_opacity=1.0, stroke_width=0).set_z_index(-10)
-        self.add(bg)
-        stages = ["parse", "state", "retrieve", "decide"]
-        boxes = VGroup()
-        for i, name in enumerate(stages):
-            box = Rectangle(width=2.2, height=1.0, color=BLUE_D).shift(RIGHT * (i - 1.5) * 2.6)
-            label = Text(name, font_size=30).move_to(box.get_center())
-            boxes.add(VGroup(box, label))
+        make_bg(self)
+        boxes = build_stages()
+        for group in boxes:
+            box, label = group
             self.play(Create(box), Write(label), run_time=0.4)
-
-        # Arrows between stages.
         arrows = VGroup()
         for i in range(3):
-            a = Arrow(boxes[i].get_right(), boxes[i + 1].get_left(), color=GREY_B)
+            a = Arrow(boxes[i].get_right(), boxes[i + 1].get_left(), color=GREY)
             arrows.add(a)
             self.play(Create(a), run_time=0.25)
+        self.wait(0.8)
 
-        # Token counter stays zero through the loop.
-        counter = Text("tokens: 0", color=GREEN).to_edge(DOWN)
+
+class EntroShopPipeline_Loop(Scene):
+    """Phase 2: one turn flashes stage by stage, token counter stays 0."""
+
+    def construct(self):
+        make_bg(self)
+        boxes = build_stages()
+        self.add(boxes)
+        arrows = VGroup(*[
+            Arrow(boxes[i].get_right(), boxes[i + 1].get_left(), color=GREY)
+            for i in range(3)
+        ])
+        self.add(arrows)
+        counter = Text("tokens: 0", color=GREEN_E).to_edge(DOWN)
         self.play(Write(counter))
-
-        # One full loop flash: highlight each box in turn.
-        for i in range(4):
-            self.play(boxes[i].animate.set_color(YELLOW), run_time=0.25)
-            self.play(boxes[i].animate.set_color(BLUE), run_time=0.25)
+        for group in boxes:
+            box, label = group
+            self.play(box.animate.set_color(YELLOW), run_time=0.25)
+            self.play(box.animate.set_color(BLUE_D), run_time=0.25)
         self.wait(1.0)
 ```
 
 ### docs/manim/convergence_policy.py
 
-Pool vs turn with the 10-turn budget wall (docs/02).
+Convergence policy, 2 phases: Curve, Wall.
 
 ```python
-"""Convergence policy clip: pool size vs turn, with the clamp at 10.
+"""Convergence policy clip, modular: draw the curve, then the budget wall.
 
-Mirrors docs/02-architecture.md "Convergence policy". Render:
-    manim render -qh convergence_policy.py EntroShopPolicy
+Render:
+    manim render -qh convergence_policy.py EntroShopPolicy_Curve
+    manim render -qh convergence_policy.py EntroShopPolicy_Wall
 """
 from manim import *
 
 
-class EntroShopPolicy(Scene):
-    """Pool shrinks turn by turn; the 10-turn budget is drawn as a wall."""
+def make_bg(scene: Scene) -> None:
+    bg = Rectangle(width=14.22, height=8.0, fill_color=WHITE,
+                   fill_opacity=1.0, stroke_width=0).set_z_index(-10)
+    scene.add(bg)
+
+
+def make_axes() -> Axes:
+    # Tick numbers are plain Text (no LaTeX) so the scene renders without TeX.
+    return Axes(
+        x_range=[0, 11, 1],
+        y_range=[0, 5, 1],
+        x_length=9,
+        y_length=4,
+        axis_config={"include_numbers": False},
+    ).shift(DOWN * 0.5)
+
+
+def add_ticks(scene: Scene, axes: Axes) -> None:
+    for t in (0, 5, 10):
+        tick = Text(str(t), font_size=20, color=GREY).next_to(
+            axes.c2p(t, 0), DOWN * 0.35)
+        scene.add(tick)
+
+
+class EntroShopPolicy_Curve(Scene):
+    """Phase 1: the log-pool curve drops turn by turn."""
 
     def construct(self):
-        # Explicit light background: the cairo renderer on some macOS setups
-        # paints the default dark frame as pure black, so scenes carry their
-        # own background and use dark foreground elements.
-        bg = Rectangle(width=14.22, height=8.0, fill_color=WHITE,
-                       fill_opacity=1.0, stroke_width=0).set_z_index(-10)
-        self.add(bg)
-        # Axes: turns (x) vs log pool size (y). Tick numbers are added as
-        # plain Text so the scene renders without a TeX install.
-        axes = Axes(
-            x_range=[0, 11, 1],
-            y_range=[0, 5, 1],
-            x_length=9,
-            y_length=4,
-            axis_config={"include_numbers": False},
-        ).shift(DOWN * 0.5)
+        make_bg(self)
+        axes = make_axes()
         self.play(Create(axes))
-        for t in (0, 5, 10):
-            tick = Text(str(t), font_size=20, color=GREY_B).next_to(
-                axes.c2p(t, 0), DOWN * 0.35)
-            self.play(FadeIn(tick), run_time=0.15)
-
-        # Pool halves-ish each turn: 50k -> 28 -> 3 -> 1 on a log scale.
+        add_ticks(self, axes)
         points = [(0, 4.7), (1, 4.0), (2, 3.2), (3, 2.4), (4, 1.8),
                   (5, 1.4), (6, 1.0), (7, 0.6), (8, 0.3), (9, 0.05)]
         line = axes.plot_line_graph(
@@ -370,61 +477,102 @@ class EntroShopPolicy(Scene):
             vertex_dot_radius=0.04,
         )
         self.play(Create(line), run_time=2.0)
+        self.wait(0.8)
 
-        # The 10-turn budget wall.
-        wall = DashedLine(
-            axes.c2p(10, 0), axes.c2p(10, 5), color=RED, dash_length=0.1
+
+class EntroShopPolicy_Wall(Scene):
+    """Phase 2: the red 10-turn budget wall lands on the curve."""
+
+    def construct(self):
+        make_bg(self)
+        axes = make_axes()
+        self.add(axes)
+        add_ticks(self, axes)
+        points = [(0, 4.7), (1, 4.0), (2, 3.2), (3, 2.4), (4, 1.8),
+                  (5, 1.4), (6, 1.0), (7, 0.6), (8, 0.3), (9, 0.05)]
+        line = axes.plot_line_graph(
+            x_values=[p[0] for p in points],
+            y_values=[p[1] for p in points],
+            line_color=TEAL,
+            vertex_dot_radius=0.04,
         )
+        self.add(line)
+        wall = DashedLine(axes.c2p(10, 0), axes.c2p(10, 5), color=RED,
+                          dash_length=0.1)
         budget = Text("10-turn budget", color=RED, font_size=26).next_to(wall, UP)
         self.play(Create(wall), Write(budget))
-        self.wait(1.5)
+        self.wait(1.2)
 ```
 
 ### docs/manim/mcp.py
 
-Deterministic core feeding four tools, any MCP host (docs/03).
+MCP layer, 2 phases: Build, Hosts.
 
 ```python
-"""MCP clip: four tools exposed over stdio/HTTP to any host.
+"""MCP clip, modular: core→tools build, then host logos.
 
-Mirrors docs/03-modules.md (agent_lib/mcp.py) and the README MCP section.
 Render:
-    manim render -qh mcp.py EntroShopMCP
+    manim render -qh mcp.py EntroShopMCP_Build
+    manim render -qh mcp.py EntroShopMCP_Hosts
 """
 from manim import *
 
+TOOLS = ["search_products", "product_details", "clarify", "tree_chain"]
 
-class EntroShopMCP(Scene):
-    """A core box feeds four tool cards; host logos connect from the side."""
+
+def make_bg(scene: Scene) -> None:
+    bg = Rectangle(width=14.22, height=8.0, fill_color=WHITE,
+                   fill_opacity=1.0, stroke_width=0).set_z_index(-10)
+    scene.add(bg)
+
+
+def build_core() -> VGroup:
+    core = RoundedRectangle(corner_radius=0.2, width=2.6, height=1.2,
+                            color=BLUE_D)
+    label = Text("deterministic core", font_size=24, color=BLACK).move_to(
+        core.get_center())
+    return VGroup(core, label)
+
+
+def build_tools() -> VGroup:
+    cards = VGroup()
+    for i, name in enumerate(TOOLS):
+        card = RoundedRectangle(corner_radius=0.15, width=3.4, height=0.7,
+                                color=GREY).shift(
+            DOWN * 1.1 + RIGHT * (i - 1.5) * 3.6)
+        label = Text(name, font_size=22, color=BLACK).move_to(card.get_center())
+        cards.add(VGroup(card, label))
+    return cards
+
+
+class EntroShopMCP_Build(Scene):
+    """Phase 1: core box, four tool cards, wires between them."""
 
     def construct(self):
-        # Explicit light background: the cairo renderer on some macOS setups
-        # paints the default dark frame as pure black, so scenes carry their
-        # own background and use dark foreground elements.
-        bg = Rectangle(width=14.22, height=8.0, fill_color=WHITE,
-                       fill_opacity=1.0, stroke_width=0).set_z_index(-10)
-        self.add(bg)
-        core = RoundedRectangle(corner_radius=0.2, width=2.6, height=1.2,
-                                color=BLUE_D)
-        core_label = Text("deterministic core", font_size=24).move_to(core.get_center())
+        make_bg(self)
+        core, core_label = build_core()
         self.play(Create(core), Write(core_label))
-
-        tools = ["search_products", "product_details", "clarify", "tree_chain"]
-        cards = VGroup()
-        for i, name in enumerate(tools):
-            card = RoundedRectangle(corner_radius=0.15, width=3.4, height=0.7,
-                                    color=GREY_B).shift(
-                DOWN * 1.1 + RIGHT * (i - 1.5) * 3.6)
-            label = Text(name, font_size=22).move_to(card.get_center())
-            cards.add(VGroup(card, label))
-            self.play(Create(card), Write(label), run_time=0.35)
-
-        # Wires from core to each tool.
+        cards = build_tools()
+        for card in cards:
+            self.play(Create(card[0]), Write(card[1]), run_time=0.35)
         for card in cards:
             wire = Line(core.get_bottom(), card.get_top(), color=TEAL)
             self.play(Create(wire), run_time=0.25)
+        self.wait(0.8)
 
-        # Hosts: Claude, Cursor, VS Code, anything.
+
+class EntroShopMCP_Hosts(Scene):
+    """Phase 2: any MCP host line appears under the wired tools."""
+
+    def construct(self):
+        make_bg(self)
+        core, core_label = build_core()
+        self.add(core, core_label)
+        cards = build_tools()
+        self.add(cards)
+        for card in cards:
+            wire = Line(core.get_bottom(), card.get_top(), color=TEAL)
+            self.add(wire)
         hosts = Text("Claude  ·  Cursor  ·  VS Code  ·  any MCP host",
                      font_size=26, color=YELLOW).to_edge(DOWN)
         self.play(Write(hosts))
@@ -433,7 +581,7 @@ class EntroShopMCP(Scene):
 
 ### docs/manim/scores.py
 
-BM25 baseline vs EntroShop bars (docs/05).
+Score bars, 1 clip.
 
 ```python
 """Score comparison clip: BM25 baseline vs EntroShop bars.
@@ -479,36 +627,53 @@ class EntroShopScores(Scene):
 
 ### docs/manim/stress.py
 
-300 answerable sessions, 0 misses (STRESS_TEST).
+Stress battery, 2 phases: Grid, Banner.
 
 ```python
-"""Stress-test clip: 300 answerable sessions, 0 misses.
+"""Stress-test clip, modular: the 300-dot grid, then the banner.
 
-Mirrors docs/STRESS_TEST.md. Render:
-    manim render -qh stress.py EntroShopStress
+Render:
+    manim render -qh stress.py EntroShopStress_Grid
+    manim render -qh stress.py EntroShopStress_Banner
 """
 from manim import *
 
 
-class EntroShopStress(Scene):
-    """A 300-dot grid; every dot stays green (no miss)."""
+def make_bg(scene: Scene) -> None:
+    bg = Rectangle(width=14.22, height=8.0, fill_color=WHITE,
+                   fill_opacity=1.0, stroke_width=0).set_z_index(-10)
+    scene.add(bg)
+
+
+def build_grid() -> VGroup:
+    dots = VGroup()
+    for i in range(300):
+        x = (i % 30) - 14.5
+        y = 4.0 - (i // 30) * 0.55
+        dots.add(Dot(np.array([x, y, 0]), radius=0.06, color=GREEN_E))
+    return dots
+
+
+class EntroShopStress_Grid(Scene):
+    """Phase 1: the 300-session grid fills in chunk by chunk."""
 
     def construct(self):
-        # Explicit light background: the cairo renderer on some macOS setups
-        # paints the default dark frame as pure black, so scenes carry their
-        # own background and use dark foreground elements.
-        bg = Rectangle(width=14.22, height=8.0, fill_color=WHITE,
-                       fill_opacity=1.0, stroke_width=0).set_z_index(-10)
-        self.add(bg)
-        dots = VGroup()
-        for i in range(300):
-            x = (i % 30) - 14.5
-            y = 4.0 - (i // 30) * 0.55
-            dots.add(Dot(np.array([x, y, 0]), radius=0.06, color=GREEN_E))
-        # Reveal in chunks so the build reads as "sessions passing".
+        make_bg(self)
+        dots = build_grid()
         for start in range(0, 300, 30):
             self.play(FadeIn(dots[start:start + 30]), run_time=0.15)
-        banner = Text("300 / 300  Hit@10 = 1.000", color=GREEN, font_size=34).to_edge(DOWN)
+        self.wait(0.8)
+
+
+class EntroShopStress_Banner(Scene):
+    """Phase 2: the 300/300 banner appears under the filled grid."""
+
+    def construct(self):
+        make_bg(self)
+        dots = build_grid()
+        self.add(dots)
+        banner = Text("300 / 300  Hit@10 = 1.000", color=GREEN_E,
+                      font_size=34).to_edge(DOWN)
         self.play(Write(banner))
         self.wait(1.5)
 ```
