@@ -602,6 +602,13 @@ class Handler(BaseHTTPRequestHandler):
             self.send_header("Content-Length", str(len(html)))
             self.end_headers()
             self.wfile.write(html)
+        elif self.path == "/favicon.ico":
+            ico = (Path(__file__).parent / "favicon.ico").read_bytes()
+            self.send_response(200)
+            self.send_header("Content-Type", "image/x-icon")
+            self.send_header("Content-Length", str(len(ico)))
+            self.end_headers()
+            self.wfile.write(ico)
         elif self.path == "/api/health":
             self._json({"ok": True, "products": len(PRODUCTS), "samples": len(SAMPLES),
                         "llm": AGENT.llm is not None,

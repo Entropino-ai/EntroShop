@@ -1,5 +1,7 @@
 # 【TiktokTechJam2026】EntroShop
 
+![EntroShop logo](demo/logo.png)
+
 > **Entropy-guided conversational shopping.** EntroShop asks the highest-information question, watches the candidate swarm converge, and settles on the one product you actually want — within 10 turns.
 
 **TikTok TechJam 2026 · Track 4 — Shopping Copilot: AI Conversational Search & Recommendations**
