@@ -85,4 +85,6 @@ The same agent is exposed as an MCP server (tools: `search_products`, `product_d
 
 - Code: https://github.com/Entropino-ai/EntroShop
 - Demo video: (3-minute YouTube walkthrough; script ready at docs/DEMO_VIDEO_SCRIPT.md, URL to be added after recording)
+  - Title: **EntroShop — 50,000 products, one target, ten turns**
+  - Description: Somewhere in a 50,000-item catalog there's one product we have to find. A simulated customer answers our questions, and we get ten turns to do it. So we built EntroShop, an entropy-guided shopping copilot that asks the highest-information question each turn and converges. On the official TechJam 2026 public set it hits 200 out of 200 sessions in 1.59 turns, at zero tokens offline. This walkthrough covers the retrieval core, the swarm arena, the product-property tree, and the MCP server that lets any agent drive it. Repo: Entropino-ai/EntroShop.
 - Data: Amazon Reviews 2023, McAuley Lab, UCSD; see DATA_ATTRIBUTION.md in the repo
