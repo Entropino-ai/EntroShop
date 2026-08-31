@@ -56,13 +56,38 @@ Non-code work is listed where it maps to specific deliverables.
   under the lead's account.
 - Repository hygiene: ignore `.venv`, removed a stray catalog archive.
 
-## Guidance & support (no code contributions)
+## Guidance, coordination & delivery support (no code contributions)
 
-- cray-xiaocheng: registered and listed as a team member; provided technical
-  guidance on project direction and design decisions during development.
-- Siuuuuean: registered and listed as a team member; assisted the team lead
-  in resolving technical challenges during development.
+### cray-xiaocheng
 
-Implementation and delivery work was carried by SakuraEntropia, YH122432,
-and 残酷な天使; cray-xiaocheng and Siuuuuean contributed guidance and
-problem-solving support.
+- Participated in all offline team discussions and project meetings
+  throughout the hackathon.
+- Took part in brainstorming on project positioning, target users, core
+  needs, and feature scenarios; contributed a short-video user-and-creator
+  perspective to product design and feature refinement.
+- Helped shape the overall direction: guiding principles, staged goals, task
+  priorities, and team division, and helped the team converge on a common
+  plan across competing proposals.
+- Joined the feasibility analysis: demo implementation difficulty, time
+  cost, and presentation impact; helped separate must-have core features from
+  optional extensions; gave opinions on risks, schedule, and resources.
+- Provided financial support for development, testing, tools, and related
+  resources.
+- Took meeting notes covering key discussions, confirmed decisions, todos,
+  and important deadlines.
+
+### Siuuuuean
+
+- Tracked team progress during development and provided support and
+  coordination for team members.
+- Participated in demo testing and usage feedback, and proposed revisions
+  from the angles of product interaction, user experience, and real-world
+  usage scenarios.
+- In the final stage, contributed to the report deck, project story line,
+  demo highlights, and submission materials; helped unify the project's
+  expression and presentation direction; supported the team in completing
+  the demo, the submission package, and the overall delivery.
+
+Implementation work was carried by SakuraEntropia, YH122432, and
+残酷な天使; cray-xiaocheng and Siuuuuean contributed guidance,
+coordination, funding, testing feedback, and delivery support.
