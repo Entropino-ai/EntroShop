@@ -56,15 +56,13 @@ Non-code work is listed where it maps to specific deliverables.
   under the lead's account.
 - Repository hygiene: ignore `.venv`, removed a stray catalog archive.
 
-## Team members without build-window contributions
+## Guidance & support (no code contributions)
 
-- cray-xiaocheng: registered and listed as a team member; contributed
-  early-stage suggestions on project direction before the build window;
-  unavailable during the build window due to academic commitments, no code
-  contributions.
-- Siuuuuean: registered and listed as a team member; unavailable during
-  the build window due to academic commitments, no code or delivery
-  contributions.
+- cray-xiaocheng: registered and listed as a team member; provided technical
+  guidance on project direction and design decisions during development.
+- Siuuuuean: registered and listed as a team member; assisted the team lead
+  in resolving technical challenges during development.
 
-The three members above (SakuraEntropia, YH122432, Xxp20080101) carried the
-implementation and delivery work.
+Implementation and delivery work was carried by SakuraEntropia, YH122432,
+and 残酷な天使; cray-xiaocheng and Siuuuuean contributed guidance and
+problem-solving support.
